@@ -1,0 +1,158 @@
+'use client';
+
+import { createContext, useContext } from 'react';
+import { User, Project, Task, Comment } from './types';
+import { allUsers, projects as initialProjects, tasks as initialTasks } from './mock-data';
+
+export interface AppState {
+  currentUser: User;
+  users: User[];
+  projects: Project[];
+  tasks: Task[];
+  theme: 'light' | 'dark';
+  sidebarCollapsed: boolean;
+  selectedTaskId: string | null;
+  selectedProjectId: string | null;
+  selectedUserId: string | null;
+}
+
+export interface AppActions {
+  setCurrentUser: (user: User) => void;
+  setTheme: (theme: 'light' | 'dark') => void;
+  toggleTheme: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  setSelectedTaskId: (id: string | null) => void;
+  setSelectedProjectId: (id: string | null) => void;
+  setSelectedUserId: (id: string | null) => void;
+  
+  // Task actions
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateTask: (id: string, updates: Partial<Task>) => void;
+  deleteTask: (id: string) => void;
+  addTaskComment: (taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+  bulkAddTasks: (projectId: string, titles: string[]) => void;
+  reorderTasks: (projectId: string, taskIds: string[]) => void;
+  
+  // Project actions
+  addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  updateProject: (id: string, updates: Partial<Project>) => void;
+  addProjectComment: (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+}
+
+export type AppContextType = AppState & AppActions;
+
+export const initialState: AppState = {
+  currentUser: allUsers[0], // Swati (admin)
+  users: allUsers,
+  projects: initialProjects,
+  tasks: initialTasks,
+  theme: 'dark',
+  sidebarCollapsed: false,
+  selectedTaskId: null,
+  selectedProjectId: null,
+  selectedUserId: null,
+};
+
+export const AppContext = createContext<AppContextType | null>(null);
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+  return context;
+}
+
+// Helper hooks
+export function useCurrentUser() {
+  const { currentUser } = useApp();
+  return currentUser;
+}
+
+export function useIsAdmin() {
+  const { currentUser } = useApp();
+  return currentUser.role === 'admin';
+}
+
+export function useProjects() {
+  const { projects } = useApp();
+  return projects;
+}
+
+export function useTasks() {
+  const { tasks } = useApp();
+  return tasks;
+}
+
+export function useTasksByProject(projectId: string) {
+  const { tasks } = useApp();
+  return tasks.filter(t => t.projectId === projectId).sort((a, b) => a.order - b.order);
+}
+
+export function useMyTasks() {
+  const { tasks, currentUser } = useApp();
+  return tasks.filter(t => t.assigneeId === currentUser.id);
+}
+
+export function useUser(userId: string | undefined) {
+  const { users } = useApp();
+  return users.find(u => u.id === userId);
+}
+
+export function useUsers() {
+  const { users } = useApp();
+  return users;
+}
+
+export function useProject(projectId: string | undefined) {
+  const { projects } = useApp();
+  return projects.find(p => p.id === projectId);
+}
+
+export function useTask(taskId: string | undefined) {
+  const { tasks } = useApp();
+  return tasks.find(t => t.id === taskId);
+}
+
+// Dashboard stats
+export function useDashboardStats() {
+  const { tasks, projects, users } = useApp();
+  const today = new Date().toISOString().split('T')[0];
+  
+  const overdueTasks = tasks.filter(t => 
+    t.status !== 'done' && t.dueDate && t.dueDate < today
+  );
+  
+  const dueTodayTasks = tasks.filter(t => 
+    t.status !== 'done' && t.dueDate === today
+  );
+  
+  const criticalTasks = tasks.filter(t => 
+    t.priority === 'critical' && t.status !== 'done'
+  );
+  
+  const unassignedTasks = tasks.filter(t => !t.assigneeId && t.status !== 'done');
+  
+  const atRiskProjects = projects.filter(p => p.status === 'at-risk');
+  
+  const teamWorkload = users.filter(u => u.role === 'member').map(user => {
+    const userTasks = tasks.filter(t => t.assigneeId === user.id && t.status !== 'done');
+    const lateTasks = userTasks.filter(t => t.dueDate && t.dueDate < today).length;
+    const load = userTasks.length > 8 ? 'overloaded' : 
+                 userTasks.length > 5 ? 'heavy' : 
+                 userTasks.length > 2 ? 'normal' : 'light';
+    return { userId: user.id, load, lateTasks, taskCount: userTasks.length };
+  });
+  
+  return {
+    totalTasks: tasks.length,
+    completedTasks: tasks.filter(t => t.status === 'done').length,
+    overdueTasks,
+    dueTodayTasks,
+    criticalTasks,
+    unassignedTasks,
+    atRiskProjects,
+    teamWorkload,
+    blockedTasks: tasks.filter(t => t.status === 'blocked'),
+  };
+}
