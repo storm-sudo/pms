@@ -3,11 +3,11 @@ services:
     name: synapse-pms
     env: node
     plan: free
-    buildCommand: pnpm install && pnpm run build
-    startCommand: pnpm run start
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
     envVars:
       - key: NODE_VERSION
-        value: 18.17.0
+        value: "20"
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: NODE_OPTIONS
