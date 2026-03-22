@@ -3,10 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AppProvider } from '@/components/app-provider'
-import { Sidebar } from '@/components/sidebar'
-import { TaskDetailPanel } from '@/components/task-detail-panel'
-import { ProjectNotesPanel } from '@/components/project-notes-panel'
-import { UserProfilePanel } from '@/components/user-profile-panel'
+import { LayoutWrapper } from '@/components/layout-wrapper'
 
 const geist = Geist({ 
   subsets: ["latin"],
@@ -18,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'BioTrack - NucleoVir Therapeutics',
+  title: 'Synapse - NucleoVir Therapeutics',
   description: 'High-accountability Project Management System for biotech research teams',
   generator: 'v0.app',
 }
@@ -39,15 +36,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
         <AppProvider>
-          <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 ml-64">
-              {children}
-            </main>
-            <TaskDetailPanel />
-            <ProjectNotesPanel />
-            <UserProfilePanel />
-          </div>
+          <LayoutWrapper>
+            {children}
+          </LayoutWrapper>
         </AppProvider>
         <Analytics />
       </body>

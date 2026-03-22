@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useApp } from "@/lib/store"
+import { toast } from "@/components/ui/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,6 +38,8 @@ export default function SettingsPage() {
   const [taskAssigned, setTaskAssigned] = useState(true)
   const [taskDueSoon, setTaskDueSoon] = useState(true)
   const [taskOverdue, setTaskOverdue] = useState(true)
+  const [mandatoryEmailOnDueDate, setMandatoryEmailOnDueDate] = useState(true)
+  const [dailyOverdueReminders, setDailyOverdueReminders] = useState(true)
   const [projectUpdates, setProjectUpdates] = useState(true)
   const [dailyDigest, setDailyDigest] = useState(true)
   const [weeklyReport, setWeeklyReport] = useState(true)
@@ -72,7 +75,7 @@ export default function SettingsPage() {
       <div className="border-b border-border bg-card/50 px-6 py-4">
         <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Configure BioTrack for your high-performance team
+          Configure Synapse for your high-performance team
         </p>
       </div>
 
@@ -282,7 +285,7 @@ export default function SettingsPage() {
                     <div>
                       <p className="font-medium">Email</p>
                       <p className="text-sm text-muted-foreground">
-                        {currentUser?.email || "user@biotrack.com"}
+                        {currentUser?.email || "user@synapse.com"}
                       </p>
                     </div>
                   </div>
@@ -295,7 +298,7 @@ export default function SettingsPage() {
                     </div>
                     <div>
                       <p className="font-medium">Slack</p>
-                      <p className="text-sm text-muted-foreground">#biotrack-notifications</p>
+                      <p className="text-sm text-muted-foreground">#synapse-notifications</p>
                     </div>
                   </div>
                   <Switch checked={slackNotifications} onCheckedChange={setSlackNotifications} />
@@ -331,6 +334,20 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted-foreground">When a task passes its deadline</p>
                   </div>
                   <Switch checked={taskOverdue} onCheckedChange={setTaskOverdue} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Mandatory email on due date</Label>
+                    <p className="text-sm text-muted-foreground">Email supervisor + member on due date</p>
+                  </div>
+                  <Switch checked={mandatoryEmailOnDueDate} onCheckedChange={setMandatoryEmailOnDueDate} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Daily overdue reminders</Label>
+                    <p className="text-sm text-muted-foreground">Daily email until task completed</p>
+                  </div>
+                  <Switch checked={dailyOverdueReminders} onCheckedChange={setDailyOverdueReminders} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -641,7 +658,9 @@ export default function SettingsPage() {
 
         {/* Save Button */}
         <div className="mt-8 flex justify-end">
-          <Button size="lg" className="px-8">
+          <Button size="lg" className="px-8" onClick={() => {
+            toast({ title: 'Settings saved', description: 'Your changes have been saved successfully.' });
+          }}>
             Save Changes
           </Button>
         </div>

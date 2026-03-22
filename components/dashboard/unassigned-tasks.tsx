@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { UserX, UserPlus } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -68,9 +69,11 @@ export function UnassignedTasks() {
               <UnassignedTaskRow key={task.id} task={task} />
             ))}
             {stats.unassignedTasks.length > 5 && (
-              <Button variant="ghost" size="sm" className="w-full mt-2">
-                View all {stats.unassignedTasks.length} unassigned
-              </Button>
+              <Link href="/tasks">
+                <Button variant="ghost" size="sm" className="w-full mt-2">
+                  View all {stats.unassignedTasks.length} unassigned
+                </Button>
+              </Link>
             )}
           </div>
         )}

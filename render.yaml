@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: synapse-pms
+    env: node
+    plan: free
+    buildCommand: pnpm install && pnpm run build
+    startCommand: pnpm run start
+    envVars:
+      - key: NODE_VERSION
+        value: 18.17.0 # Next.js 14+ works best with 18.x or 20.x
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"

@@ -36,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useApp, useTask, useProject, useUsers, useCurrentUser } from '@/lib/store';
+import { useToast } from '@/components/ui/use-toast';
 import { priorityColors, statusColors } from '@/lib/mock-data';
 import { Priority, TaskStatus, Subtask } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,7 @@ export function TaskDetailPanel() {
   const project = useProject(task?.projectId);
   const users = useUsers();
   const currentUser = useCurrentUser();
+  const { toast } = useToast();
   
   const [newComment, setNewComment] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
@@ -59,6 +61,14 @@ export function TaskDetailPanel() {
   const assignee = users.find(u => u.id === task.assigneeId);
 
   const handleStatusChange = (status: TaskStatus) => {
+    if (status === 'done' && currentUser.role !== 'admin') {
+      toast({
+        title: "Permission Denied",
+        description: "Only Admins (YO/AR/SK) can close tasks.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateTask(task.id, { 
       status,
       completedDate: status === 'done' ? new Date().toISOString().split('T')[0] : undefined
@@ -100,6 +110,22 @@ export function TaskDetailPanel() {
   };
 
   const handleToggleSubtask = (subtaskId: string) => {
+    const isLead = project?.leadId === currentUser.id;
+    const isAssignee = task.assigneeId === currentUser.id;
+    const isAdmin = currentUser.role === 'admin';
+
+    const subtask = task.subtasks.find(s => s.id === subtaskId);
+    if (subtask && !subtask.completed) { // Trying to complete
+      if (!isAdmin && !isLead && !isAssignee) {
+        toast({
+          title: "Permission Denied",
+          description: "Only supervisors (Assignee/Project Lead) can close subtasks.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const subtasks = task.subtasks.map(s => 
       s.id === subtaskId 
         ? { ...s, completed: !s.completed, completedDate: !s.completed ? new Date().toISOString().split('T')[0] : undefined }

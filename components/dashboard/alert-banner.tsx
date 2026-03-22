@@ -39,7 +39,11 @@ export function AlertBanner() {
             {' '}need your immediate attention.
           </p>
           <div className="mt-3 flex gap-2">
-            <Button size="sm" variant="destructive">
+            <Button size="sm" variant="destructive" onClick={() => {
+              setDismissed(true);
+              const el = document.getElementById('priority-actions');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            }}>
               Review Now
             </Button>
             <Button size="sm" variant="outline" onClick={() => setDismissed(true)}>

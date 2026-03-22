@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Mail,
   Calendar,
@@ -15,6 +15,7 @@ import {
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -33,7 +34,7 @@ interface LeadershipNote {
 }
 
 export function UserProfilePanel() {
-  const { selectedUserId, setSelectedUserId } = useApp();
+  const { selectedUserId, setSelectedUserId, updateUser } = useApp();
   const user = useUser(selectedUserId || undefined);
   const users = useUsers();
   const currentUser = useCurrentUser();
@@ -43,6 +44,22 @@ export function UserProfilePanel() {
   const [newNote, setNewNote] = useState('');
   // In a real app, these would be stored in the database
   const [leadershipNotes, setLeadershipNotes] = useState<LeadershipNote[]>([]);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState('');
+  const [editedDepartment, setEditedDepartment] = useState('');
+  const [editedRole, setEditedRole] = useState('');
+  const [editedEmail, setEditedEmail] = useState('');
+
+  useEffect(() => {
+    if (user) {
+      setEditedName(user.name);
+      setEditedDepartment(user.department);
+      setEditedRole(user.role);
+      setEditedEmail(user.email);
+      setIsEditing(false);
+    }
+  }, [user]);
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
@@ -71,29 +88,57 @@ export function UserProfilePanel() {
     <Sheet open={!!selectedUserId} onOpenChange={(open) => !open && setSelectedUserId(null)}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader className="space-y-4 pb-4">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16">
-              <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                {getInitials(user.name)}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <SheetTitle className="text-xl">{user.name}</SheetTitle>
-              <div className="flex items-center gap-2 mt-1">
-                <Badge variant="outline" className={cn(departmentColors[user.department])}>
-                  {user.department}
-                </Badge>
-                {user.role === 'admin' && (
-                  <Badge className="bg-amber-500 text-white">Admin</Badge>
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center gap-4">
+              <Avatar className="h-16 w-16">
+                <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                  {getInitials(user.name)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <Input value={editedName} onChange={e => setEditedName(e.target.value)} className="h-8 py-1 text-base font-semibold" />
+                    <div className="flex gap-2 mt-1">
+                      <Input value={editedDepartment} onChange={e => setEditedDepartment(e.target.value)} className="h-6 py-0 px-2 text-xs w-24" placeholder="Dept" />
+                      <Input value={editedRole} onChange={e => setEditedRole(e.target.value)} className="h-6 py-0 px-2 text-xs w-24" placeholder="Role" />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <SheetTitle className="text-xl">{user.name}</SheetTitle>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className={cn(departmentColors[user.department || 'Leadership'])}>
+                        {user.department}
+                      </Badge>
+                      {user.role === 'admin' && (
+                        <Badge className="bg-amber-500 text-white text-[10px]">Admin</Badge>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             </div>
+            {isAdmin && (
+              <Button size="sm" variant="outline" className="ml-2" onClick={() => {
+                if (isEditing) {
+                  updateUser(user.id, { name: editedName, department: editedDepartment as any, role: editedRole as any, email: editedEmail });
+                }
+                setIsEditing(!isEditing);
+              }}>
+                {isEditing ? 'Save' : 'Edit'}
+              </Button>
+            )}
           </div>
           
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1">
               <Mail className="h-4 w-4" />
-              {user.email}
+              {isEditing ? (
+                <Input value={editedEmail} onChange={e => setEditedEmail(e.target.value)} className="h-6 py-0 px-1 text-xs w-48" placeholder="Email" />
+              ) : (
+                user.email
+              )}
             </span>
             <span className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />

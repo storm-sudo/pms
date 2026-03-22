@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, KeyboardEvent } from 'react';
+import { useState, useEffect, KeyboardEvent } from 'react';
 import {
   ChevronDown,
   ChevronRight,
@@ -34,9 +34,24 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { useApp, useProjects, useTasksByProject, useUser, useUsers } from '@/lib/store';
+import { useToast } from '@/components/ui/use-toast';
 import { departmentColors, priorityColors, projectStatusColors, statusColors } from '@/lib/mock-data';
-import { Project, Task, Priority } from '@/lib/types';
+import { Project, Task, Priority, Department, ProjectStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface ProjectCardProps {
@@ -244,7 +259,10 @@ function ProjectCard({ project }: ProjectCardProps) {
                     View Notes
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>Edit Project</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => {
+                    const event = new CustomEvent('edit-project', { detail: project });
+                    window.dispatchEvent(event);
+                  }}>Edit Project</DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -305,7 +323,86 @@ function ProjectCard({ project }: ProjectCardProps) {
 
 export default function ProjectsPage() {
   const projects = useProjects();
+  const { addProject, updateProject, currentUser } = useApp();
+  const { toast } = useToast();
+  const users = useUsers();
   const [filter, setFilter] = useState<'all' | 'active' | 'at-risk' | 'completed'>('all');
+  const [showNewProject, setShowNewProject] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [newProjectDesc, setNewProjectDesc] = useState('');
+  const [newProjectDept, setNewProjectDept] = useState<Department>('Mol Bio');
+  const [newProjectPriority, setNewProjectPriority] = useState<Priority>('medium');
+  const [newProjectStatus, setNewProjectStatus] = useState<ProjectStatus>('active');
+  const [newProjectDueDate, setNewProjectDueDate] = useState('');
+
+  // Listen for edit-project events from ProjectCard
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const project = (e as CustomEvent).detail as Project;
+      setEditingProject(project);
+      setNewProjectName(project.name);
+      setNewProjectDesc(project.description || '');
+      setNewProjectDept(project.department);
+      setNewProjectPriority(project.priority);
+      setNewProjectStatus(project.status);
+      setNewProjectDueDate(project.dueDate || '');
+      setShowNewProject(true);
+    };
+    window.addEventListener('edit-project', handler);
+    return () => window.removeEventListener('edit-project', handler);
+  }, []);
+
+  const resetForm = () => {
+    setNewProjectName('');
+    setNewProjectDesc('');
+    setNewProjectDept('Mol Bio');
+    setNewProjectPriority('medium');
+    setNewProjectStatus('active');
+    setNewProjectDueDate('');
+    setEditingProject(null);
+  };
+
+  const handleSaveProject = () => {
+    if (!newProjectName.trim()) return;
+
+    if (editingProject && newProjectStatus === 'completed' && currentUser.role !== 'admin') {
+      toast({
+        title: "Permission Denied",
+        description: "Only Admins (YO/AR/SK) can close projects.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (editingProject) {
+      updateProject(editingProject.id, {
+        name: newProjectName.trim(),
+        description: newProjectDesc.trim() || undefined,
+        department: newProjectDept,
+        priority: newProjectPriority,
+        status: newProjectStatus,
+        dueDate: newProjectDueDate || undefined,
+      });
+    } else {
+      addProject({
+        name: newProjectName.trim(),
+        description: newProjectDesc.trim() || undefined,
+        department: newProjectDept,
+        status: newProjectStatus,
+        progress: 0,
+        memberIds: [],
+        elnLinks: [],
+        comments: [],
+        milestones: [],
+        tags: [],
+        priority: newProjectPriority,
+        dueDate: newProjectDueDate || undefined,
+      });
+    }
+    setShowNewProject(false);
+    resetForm();
+  };
 
   const filteredProjects = projects.filter(p => {
     if (filter === 'all') return true;
@@ -322,11 +419,94 @@ export default function ProjectsPage() {
           <h1 className="text-2xl font-bold">Projects</h1>
           <p className="text-muted-foreground">Manage and track all research projects</p>
         </div>
-        <Button>
+        <Button onClick={() => { resetForm(); setShowNewProject(true); }}>
           <Plus className="h-4 w-4 mr-2" />
           New Project
         </Button>
       </div>
+
+      {/* New/Edit Project Dialog */}
+      <Dialog open={showNewProject} onOpenChange={(open) => { setShowNewProject(open); if (!open) resetForm(); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingProject ? 'Edit Project' : 'New Project'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Project Name</Label>
+              <Input
+                placeholder="Enter project name..."
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Project description (optional)..."
+                value={newProjectDesc}
+                onChange={(e) => setNewProjectDesc(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Department</Label>
+                <Select value={newProjectDept} onValueChange={(v) => setNewProjectDept(v as Department)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Mol Bio">Mol Bio</SelectItem>
+                    <SelectItem value="AI">AI</SelectItem>
+                    <SelectItem value="Bioinfo">Bioinfo</SelectItem>
+                    <SelectItem value="Leadership">Leadership</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={newProjectPriority} onValueChange={(v) => setNewProjectPriority(v as Priority)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="critical">Critical</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={newProjectStatus} onValueChange={(v) => setNewProjectStatus(v as ProjectStatus)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="on-hold">On Hold</SelectItem>
+                    <SelectItem value="at-risk">At Risk</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Due Date</Label>
+                <Input
+                  type="date"
+                  value={newProjectDueDate}
+                  onChange={(e) => setNewProjectDueDate(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setShowNewProject(false); resetForm(); }}>Cancel</Button>
+              <Button onClick={handleSaveProject} disabled={!newProjectName.trim()}>
+                {editingProject ? 'Save Changes' : 'Create Project'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Filters */}
       <div className="flex gap-2">
@@ -340,8 +520,8 @@ export default function ProjectsPage() {
           >
             {f === 'all' ? 'All Projects' : f.replace('-', ' ')}
             <Badge variant="secondary" className="ml-2 text-xs">
-              {f === 'all' 
-                ? projects.length 
+              {f === 'all'
+                ? projects.length
                 : projects.filter(p => p.status === f).length
               }
             </Badge>

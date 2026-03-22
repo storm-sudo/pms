@@ -6,6 +6,7 @@ import { allUsers, projects as initialProjects, tasks as initialTasks } from './
 
 export interface AppState {
   currentUser: User;
+  isLoggedIn: boolean;
   users: User[];
   projects: Project[];
   tasks: Task[];
@@ -18,6 +19,7 @@ export interface AppState {
 
 export interface AppActions {
   setCurrentUser: (user: User) => void;
+  setLoggedIn: (loggedIn: boolean) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -36,6 +38,7 @@ export interface AppActions {
   // Project actions
   addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
+  updateUser: (id: string, updates: Partial<User>) => void;
   addProjectComment: (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
 }
 
@@ -43,6 +46,7 @@ export type AppContextType = AppState & AppActions;
 
 export const initialState: AppState = {
   currentUser: allUsers[0], // Swati (admin)
+  isLoggedIn: false,
   users: allUsers,
   projects: initialProjects,
   tasks: initialTasks,

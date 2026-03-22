@@ -66,7 +66,8 @@ export default function TimelinePage() {
 
   const getTaskPosition = (task: Task) => {
     const startDate = new Date(task.startDate || task.createdAt)
-    const endDate = new Date(task.dueDate)
+    // If no dueDate, default to startDate + 1 day so the task is still visible
+    const endDate = task.dueDate ? new Date(task.dueDate) : new Date(startDate.getTime() + 86400000)
     const rangeStart = dateRange[0]
     const rangeEnd = dateRange[dateRange.length - 1]
 

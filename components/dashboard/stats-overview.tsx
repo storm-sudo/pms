@@ -9,18 +9,39 @@ import {
   Layers
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { useDashboardStats, useProjects } from '@/lib/store';
+import { useDashboardStats, useProjects, useTasks } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
 export function StatsOverview() {
   const stats = useDashboardStats();
   const projects = useProjects();
+  const tasks = useTasks();
   
   const completionRate = stats.totalTasks > 0 
     ? Math.round((stats.completedTasks / stats.totalTasks) * 100) 
     : 0;
 
   const activeProjects = projects.filter(p => p.status === 'active' || p.status === 'at-risk').length;
+
+  // Compute average completion time from actual data
+  const completedWithDates = tasks.filter(t => t.status === 'done' && t.completedDate && t.createdAt);
+  const avgCompletionDays = completedWithDates.length > 0
+    ? (completedWithDates.reduce((sum, t) => {
+        const created = new Date(t.createdAt).getTime();
+        const completed = new Date(t.completedDate!).getTime();
+        return sum + (completed - created) / (1000 * 60 * 60 * 24);
+      }, 0) / completedWithDates.length).toFixed(1)
+    : '—';
+
+  // Compute completion rate trend (this week vs last week)
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const twoWeeksAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const completedThisWeek = tasks.filter(t => t.completedDate && new Date(t.completedDate) >= weekAgo).length;
+  const completedLastWeek = tasks.filter(t => t.completedDate && new Date(t.completedDate) >= twoWeeksAgo && new Date(t.completedDate) < weekAgo).length;
+  const trend = completedLastWeek > 0
+    ? Math.round(((completedThisWeek - completedLastWeek) / completedLastWeek) * 100)
+    : 0;
 
   const cards = [
     {
@@ -29,8 +50,8 @@ export function StatsOverview() {
       subtitle: `${stats.completedTasks} of ${stats.totalTasks} tasks`,
       icon: Target,
       color: 'text-primary bg-primary/10',
-      trend: '+5%',
-      trendUp: true,
+      trend: trend !== 0 ? `${trend > 0 ? '+' : ''}${trend}%` : undefined,
+      trendUp: trend >= 0,
     },
     {
       title: 'Active Projects',
@@ -48,12 +69,10 @@ export function StatsOverview() {
     },
     {
       title: 'Avg Completion',
-      value: '2.4d',
+      value: `${avgCompletionDays}d`,
       subtitle: 'Task completion time',
       icon: Clock,
       color: 'text-emerald-500 bg-emerald-500/10',
-      trend: '-0.3d',
-      trendUp: true,
     },
   ];
 

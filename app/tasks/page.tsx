@@ -171,15 +171,7 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Activity Heatmap */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Your Activity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ActivityHeatmap userId={currentUser.id} compact />
-        </CardContent>
-      </Card>
+
 
       {/* Filters */}
       <div className="flex items-center gap-3">

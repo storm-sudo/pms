@@ -9,6 +9,7 @@ import { useDashboardStats, useApp, useUser } from '@/lib/store';
 import { priorityColors } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import { Task } from '@/lib/types';
+import Link from 'next/link';
 
 function TaskRow({ task, onAssign }: { task: Task; onAssign: () => void }) {
   const assignee = useUser(task.assigneeId);
@@ -67,7 +68,7 @@ export function PriorityActionsPanel() {
   const { setSelectedTaskId } = useApp();
 
   return (
-    <div className="grid gap-4 md:grid-cols-3">
+    <div id="priority-actions" className="grid gap-4 md:grid-cols-3">
       {/* Overdue */}
       <Card className={cn(
         "border-l-4",
@@ -96,9 +97,11 @@ export function PriorityActionsPanel() {
             </p>
           )}
           {stats.overdueTasks.length > 3 && (
-            <Button variant="ghost" size="sm" className="w-full">
-              View all {stats.overdueTasks.length}
-            </Button>
+            <Link href="/tasks">
+              <Button variant="ghost" size="sm" className="w-full">
+                View all {stats.overdueTasks.length}
+              </Button>
+            </Link>
           )}
         </CardContent>
       </Card>
@@ -131,9 +134,11 @@ export function PriorityActionsPanel() {
             </p>
           )}
           {stats.dueTodayTasks.length > 3 && (
-            <Button variant="ghost" size="sm" className="w-full">
-              View all {stats.dueTodayTasks.length}
-            </Button>
+            <Link href="/tasks">
+              <Button variant="ghost" size="sm" className="w-full">
+                View all {stats.dueTodayTasks.length}
+              </Button>
+            </Link>
           )}
         </CardContent>
       </Card>
@@ -166,9 +171,11 @@ export function PriorityActionsPanel() {
             </p>
           )}
           {stats.criticalTasks.length > 3 && (
-            <Button variant="ghost" size="sm" className="w-full">
-              View all {stats.criticalTasks.length}
-            </Button>
+            <Link href="/tasks">
+              <Button variant="ghost" size="sm" className="w-full">
+                View all {stats.criticalTasks.length}
+              </Button>
+            </Link>
           )}
         </CardContent>
       </Card>

@@ -13,7 +13,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Initialize theme from system preference or localStorage
   useEffect(() => {
-    const stored = localStorage.getItem('biotrack-theme');
+    const stored = localStorage.getItem('synapse-theme');
     if (stored === 'light' || stored === 'dark') {
       setState(s => ({ ...s, theme: stored }));
       document.documentElement.classList.toggle('dark', stored === 'dark');
@@ -28,16 +28,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, currentUser: user }));
   }, []);
 
+  const setLoggedIn = useCallback((loggedIn: boolean) => {
+    setState(s => ({ ...s, isLoggedIn: loggedIn }));
+  }, []);
+
   const setTheme = useCallback((theme: 'light' | 'dark') => {
     setState(s => ({ ...s, theme }));
-    localStorage.setItem('biotrack-theme', theme);
+    localStorage.setItem('synapse-theme', theme);
     document.documentElement.classList.toggle('dark', theme === 'dark');
   }, []);
 
   const toggleTheme = useCallback(() => {
     setState(s => {
       const newTheme = s.theme === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('biotrack-theme', newTheme);
+      localStorage.setItem('synapse-theme', newTheme);
       document.documentElement.classList.toggle('dark', newTheme === 'dark');
       return { ...s, theme: newTheme };
     });
@@ -171,9 +175,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const updateUser = useCallback((id: string, updates: Partial<User>) => {
+    setState(s => ({
+      ...s,
+      users: s.users.map(u => u.id === id ? { ...u, ...updates } : u),
+    }));
+  }, []);
+
   const contextValue = {
     ...state,
     setCurrentUser,
+    setLoggedIn,
     setTheme,
     toggleTheme,
     setSidebarCollapsed,
@@ -188,6 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     reorderTasks,
     addProject,
     updateProject,
+    updateUser,
     addProjectComment,
   };
 
