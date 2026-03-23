@@ -1,15 +1,14 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AppProvider } from '@/components/app-provider'
 import { LayoutWrapper } from '@/components/layout-wrapper'
 
-const geist = Geist({ 
+const geist = Geist({
   subsets: ["latin"],
   variable: '--font-geist-sans',
 });
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: '--font-geist-mono',
 });
@@ -17,7 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Synapse - NucleoVir Therapeutics',
   description: 'High-accountability Project Management System for biotech research teams',
-  generator: 'v0.app',
 }
 
 export const viewport: Viewport = {
@@ -40,8 +38,8 @@ export default function RootLayout({
             {children}
           </LayoutWrapper>
         </AppProvider>
-        <Analytics />
       </body>
     </html>
   )
 }
+

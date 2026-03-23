@@ -20,13 +20,14 @@ export interface AppState {
 export interface AppActions {
   setCurrentUser: (user: User) => void;
   setLoggedIn: (loggedIn: boolean) => void;
+  logout: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   setSelectedTaskId: (id: string | null) => void;
   setSelectedProjectId: (id: string | null) => void;
   setSelectedUserId: (id: string | null) => void;
-  
+
   // Task actions
   addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
@@ -34,7 +35,7 @@ export interface AppActions {
   addTaskComment: (taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
   bulkAddTasks: (projectId: string, titles: string[]) => void;
   reorderTasks: (projectId: string, taskIds: string[]) => void;
-  
+
   // Project actions
   addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateProject: (id: string, updates: Partial<Project>) => void;
@@ -122,32 +123,32 @@ export function useTask(taskId: string | undefined) {
 export function useDashboardStats() {
   const { tasks, projects, users } = useApp();
   const today = new Date().toISOString().split('T')[0];
-  
-  const overdueTasks = tasks.filter(t => 
+
+  const overdueTasks = tasks.filter(t =>
     t.status !== 'done' && t.dueDate && t.dueDate < today
   );
-  
-  const dueTodayTasks = tasks.filter(t => 
+
+  const dueTodayTasks = tasks.filter(t =>
     t.status !== 'done' && t.dueDate === today
   );
-  
-  const criticalTasks = tasks.filter(t => 
+
+  const criticalTasks = tasks.filter(t =>
     t.priority === 'critical' && t.status !== 'done'
   );
-  
+
   const unassignedTasks = tasks.filter(t => !t.assigneeId && t.status !== 'done');
-  
+
   const atRiskProjects = projects.filter(p => p.status === 'at-risk');
-  
+
   const teamWorkload = users.filter(u => u.role === 'member').map(user => {
     const userTasks = tasks.filter(t => t.assigneeId === user.id && t.status !== 'done');
     const lateTasks = userTasks.filter(t => t.dueDate && t.dueDate < today).length;
-    const load = userTasks.length > 8 ? 'overloaded' : 
-                 userTasks.length > 5 ? 'heavy' : 
-                 userTasks.length > 2 ? 'normal' : 'light';
+    const load = userTasks.length > 8 ? 'overloaded' :
+      userTasks.length > 5 ? 'heavy' :
+        userTasks.length > 2 ? 'normal' : 'light';
     return { userId: user.id, load, lateTasks, taskCount: userTasks.length };
   });
-  
+
   return {
     totalTasks: tasks.length,
     completedTasks: tasks.filter(t => t.status === 'done').length,

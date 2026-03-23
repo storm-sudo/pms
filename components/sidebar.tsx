@@ -62,7 +62,7 @@ const adminNavigation = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { theme, toggleTheme, currentUser, setCurrentUser, setLoggedIn, setSelectedTaskId, addTask } = useApp();
+  const { theme, toggleTheme, currentUser, setCurrentUser, logout, setSelectedTaskId, addTask } = useApp();
   const isAdmin = useIsAdmin();
   const projects = useProjects();
   const tasks = useTasks();
@@ -410,9 +410,9 @@ export function Sidebar() {
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={() => {
-                setLoggedIn(false);
+                logout();
                 router.push('/login');
               }}
               className="text-destructive focus:text-destructive cursor-pointer"

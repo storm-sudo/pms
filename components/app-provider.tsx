@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
 import { User, Project, Task, Comment } from '@/lib/types';
+import { logoutUser, getSession } from '@/lib/auth';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
@@ -10,6 +11,14 @@ function generateId() {
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
+
+  // Restore session on mount
+  useEffect(() => {
+    const session = getSession();
+    if (session) {
+      setState(s => ({ ...s, isLoggedIn: true }));
+    }
+  }, []);
 
   // Initialize theme from system preference or localStorage
   useEffect(() => {
@@ -30,6 +39,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const setLoggedIn = useCallback((loggedIn: boolean) => {
     setState(s => ({ ...s, isLoggedIn: loggedIn }));
+  }, []);
+
+  const logout = useCallback(() => {
+    logoutUser();
+    setState(s => ({ ...s, isLoggedIn: false }));
   }, []);
 
   const setTheme = useCallback((theme: 'light' | 'dark') => {
@@ -108,7 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString();
     const projectTasks = state.tasks.filter(t => t.projectId === projectId);
     const maxOrder = projectTasks.length > 0 ? Math.max(...projectTasks.map(t => t.order)) : 0;
-    
+
     const newTasks: Task[] = titles.map((title, idx) => ({
       id: `t${generateId()}`,
       title: title.trim(),
@@ -122,7 +136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: now,
       updatedAt: now,
     }));
-    
+
     setState(s => ({ ...s, tasks: [...s.tasks, ...newTasks] }));
   }, [state.tasks]);
 
@@ -186,6 +200,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     ...state,
     setCurrentUser,
     setLoggedIn,
+    logout,
     setTheme,
     toggleTheme,
     setSidebarCollapsed,

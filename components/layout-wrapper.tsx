@@ -7,25 +7,28 @@ import { ProjectNotesPanel } from '@/components/project-notes-panel';
 import { UserProfilePanel } from '@/components/user-profile-panel';
 import { useApp } from '@/lib/store';
 import { useEffect } from 'react';
+import { ReminderChecker } from '@/components/reminder-checker';
 
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isLoggedIn } = useApp();
-  const isLoginPage = pathname === '/login';
+  const isAuthPage = pathname === '/login' || pathname === '/register';
 
   useEffect(() => {
-    if (!isLoggedIn && !isLoginPage) {
+    if (!isLoggedIn && !isAuthPage) {
       router.push('/login');
     }
-  }, [isLoggedIn, isLoginPage, router]);
+  }, [isLoggedIn, isAuthPage, router]);
 
-  if (isLoginPage) {
+  // Auth pages (login, register) render without sidebar
+  if (isAuthPage) {
     return <>{children}</>;
   }
 
+  // Prevent layout flash while redirecting to login
   if (!isLoggedIn) {
-    return null; // prevent layout flash while redirecting
+    return null;
   }
 
   return (
@@ -37,6 +40,7 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
       <TaskDetailPanel />
       <ProjectNotesPanel />
       <UserProfilePanel />
+      <ReminderChecker />
     </div>
   );
 }

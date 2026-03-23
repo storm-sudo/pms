@@ -24,6 +24,7 @@ import {
   DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { useApp, useMyTasks, useCurrentUser, useProject } from '@/lib/store';
+import { useToast } from '@/components/ui/use-toast';
 import { priorityColors, statusColors } from '@/lib/mock-data';
 import { Task, Priority, TaskStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -32,7 +33,9 @@ import { ActivityHeatmap } from '@/components/activity-heatmap';
 function TaskCard({ task }: { task: Task }) {
   const project = useProject(task.projectId);
   const { setSelectedTaskId, updateTask } = useApp();
-  
+  const currentUser = useCurrentUser();
+  const { toast } = useToast();
+
   const today = new Date().toISOString().split('T')[0];
   const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'done';
 
@@ -49,19 +52,27 @@ function TaskCard({ task }: { task: Task }) {
     if (task.status === 'done') {
       updateTask(task.id, { status: 'todo', completedDate: undefined });
     } else {
+      if (currentUser.role !== 'admin') {
+        toast({
+          title: "Permission Denied",
+          description: "Only Admins (YO/AR/SK) can close tasks.",
+          variant: "destructive",
+        });
+        return;
+      }
       updateTask(task.id, { status: 'done', completedDate: new Date().toISOString().split('T')[0] });
     }
   };
 
   return (
-    <div 
+    <div
       className="flex items-start gap-3 p-4 rounded-lg border bg-card hover:bg-accent/50 cursor-pointer transition-colors"
       onClick={() => setSelectedTaskId(task.id)}
     >
       <button onClick={toggleStatus} className="mt-0.5 shrink-0">
         {statusIcon[task.status]}
       </button>
-      
+
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
@@ -73,20 +84,20 @@ function TaskCard({ task }: { task: Task }) {
             </p>
             <p className="text-sm text-muted-foreground mt-0.5">{project?.name}</p>
           </div>
-          
+
           <div className="flex items-center gap-2 shrink-0">
             <Badge variant="outline" className={cn('text-xs', priorityColors[task.priority])}>
               {task.priority}
             </Badge>
           </div>
         </div>
-        
+
         {task.description && (
           <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
             {task.description}
           </p>
         )}
-        
+
         <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
           {task.dueDate && (
             <span className={cn(
@@ -94,21 +105,21 @@ function TaskCard({ task }: { task: Task }) {
               isOverdue && 'text-destructive font-medium'
             )}>
               <Calendar className="h-3.5 w-3.5" />
-              {new Date(task.dueDate).toLocaleDateString('en-US', { 
-                month: 'short', 
-                day: 'numeric' 
+              {new Date(task.dueDate).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric'
               })}
               {isOverdue && ' (Overdue)'}
             </span>
           )}
-          
+
           {task.subtasks.length > 0 && (
             <span className="flex items-center gap-1">
               <CheckCircle2 className="h-3.5 w-3.5" />
               {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length} subtasks
             </span>
           )}
-          
+
           {task.status === 'blocked' && (
             <span className="flex items-center gap-1 text-destructive">
               <AlertTriangle className="h-3.5 w-3.5" />
@@ -181,7 +192,7 @@ export default function TasksPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs"
         />
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
