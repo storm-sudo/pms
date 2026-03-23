@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
 import { User, Project, Task, Comment } from '@/lib/types';
-import { logoutUser, getSession } from '@/lib/auth';
+import { logoutUser, getSession, getLoggedInUser } from '@/lib/auth';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
@@ -16,7 +16,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const session = getSession();
     if (session) {
-      setState(s => ({ ...s, isLoggedIn: true }));
+      const loggedInUser = getLoggedInUser();
+      if (loggedInUser) {
+        const mappedUser: User = {
+          id: loggedInUser.id,
+          name: loggedInUser.name,
+          email: loggedInUser.email,
+          role: 'member', // Default role for new users
+          department: 'Mol Bio',
+          joinedDate: loggedInUser.createdAt,
+          lastActive: new Date().toISOString(),
+          workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+        };
+
+        setState(s => {
+          const userExists = s.users.some(u => u.id === mappedUser.id);
+          const updatedUsers = userExists ? s.users : [...s.users, mappedUser];
+          return {
+            ...s,
+            isLoggedIn: true,
+            currentUser: mappedUser,
+            users: updatedUsers
+          };
+        });
+      } else {
+        setState(s => ({ ...s, isLoggedIn: true }));
+      }
     }
   }, []);
 

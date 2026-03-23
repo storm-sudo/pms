@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useApp } from '@/lib/store';
 import { useRouter } from 'next/navigation';
 import { loginUser, isValidNTEmail } from '@/lib/auth';
+import { User } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,7 @@ import { Dna, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
-    const { setLoggedIn } = useApp();
+    const { setLoggedIn, setCurrentUser } = useApp();
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -30,7 +31,19 @@ export default function LoginPage() {
 
         const result = loginUser(email, password);
 
-        if (result.success) {
+        if (result.success && result.user) {
+            const mappedUser: User = {
+                id: result.user.id,
+                name: result.user.name,
+                email: result.user.email,
+                role: 'member', // Default role
+                department: 'Mol Bio',
+                joinedDate: result.user.createdAt,
+                lastActive: new Date().toISOString(),
+                workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+            };
+
+            setCurrentUser(mappedUser);
             setLoggedIn(true);
             router.push('/');
         } else {
