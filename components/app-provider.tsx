@@ -30,12 +30,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
         };
 
         setState(s => {
-          const userExists = s.users.some(u => u.id === mappedUser.id);
-          const updatedUsers = userExists ? s.users : [...s.users, mappedUser];
+          const existingUser = s.users.find(u => u.email.toLowerCase() === loggedInUser.email.toLowerCase());
+          const finalUser = existingUser || mappedUser;
+          const userExists = s.users.some(u => u.id === finalUser.id);
+          const updatedUsers = userExists ? s.users : [...s.users, finalUser];
+
           return {
             ...s,
             isLoggedIn: true,
-            currentUser: mappedUser,
+            currentUser: finalUser,
             users: updatedUsers
           };
         });

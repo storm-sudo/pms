@@ -13,7 +13,7 @@ import { Dna, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
-    const { setLoggedIn, setCurrentUser } = useApp();
+    const { setLoggedIn, setCurrentUser, users } = useApp();
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -32,7 +32,9 @@ export default function LoginPage() {
         const result = loginUser(email, password);
 
         if (result.success && result.user) {
-            const mappedUser: User = {
+            const existingUser = users.find(u => u.email.toLowerCase() === result.user!.email.toLowerCase());
+
+            const mappedUser: User = existingUser || {
                 id: result.user.id,
                 name: result.user.name,
                 email: result.user.email,

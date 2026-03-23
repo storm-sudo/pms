@@ -56,9 +56,10 @@ export const members: User[] = [
   { id: 'u4', name: 'Sayali Chaske', email: 'sayali@nucleovir.com', role: 'member', department: 'Mol Bio', workload: { activeTasks: 5, completedThisWeek: 3, overdueTasks: 1, avgCompletionTime: 2.2 }, elnUrl: 'https://eln.nucleovir.com/priya', joinedDate: '2023-03-20', lastActive: daysAgo(0) },
   { id: 'u5', name: 'Rutuja', email: 'rutuja@nucleovir.com', role: 'member', department: 'Mol Bio', workload: { activeTasks: 7, completedThisWeek: 4, overdueTasks: 2, avgCompletionTime: 3.5 }, elnUrl: 'https://eln.nucleovir.com/raj', joinedDate: '2023-04-10', lastActive: daysAgo(0) },
 
-  // AI Team (6 members)
+  // AI Team (7 members)
   { id: 'u10', name: 'Apurv Kochar', email: 'apurvkochar@nucleovir.com', role: 'member', department: 'AI', workload: { activeTasks: 9, completedThisWeek: 5, overdueTasks: 2, avgCompletionTime: 2.4 }, elnUrl: 'https://eln.nucleovir.com/kavitha', joinedDate: '2023-02-15', lastActive: daysAgo(0) },
   { id: 'u11', name: 'Alok Ahirrao', email: 'Alokahirrao@nucleovir.com', role: 'member', department: 'AI', workload: { activeTasks: 4, completedThisWeek: 7, overdueTasks: 0, avgCompletionTime: 1.6 }, elnUrl: 'https://eln.nucleovir.com/arun', joinedDate: '2023-03-01', lastActive: daysAgo(0) },
+  { id: 'u22', name: 'Shahebaaz Kazi', email: 'shahebaazkazi002nt@gmail.com', role: 'member', department: 'AI', workload: { activeTasks: 3, completedThisWeek: 2, overdueTasks: 0, avgCompletionTime: 1.2 }, elnUrl: 'https://eln.nucleovir.com/shahebaaz', joinedDate: '2025-03-01', lastActive: daysAgo(0) },
 
   // Bioinfo Team (5 members)
   { id: 'u16', name: 'Adwait Joshi', email: 'adwaitjoshi@nucleovir.com', role: 'member', department: 'Bioinfo', workload: { activeTasks: 4, completedThisWeek: 5, overdueTasks: 0, avgCompletionTime: 1.8 }, elnUrl: 'https://eln.nucleovir.com/amit', joinedDate: '2023-02-28', lastActive: daysAgo(0) },
