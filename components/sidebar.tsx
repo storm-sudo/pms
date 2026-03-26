@@ -142,18 +142,17 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar glass flex flex-col">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-        <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white/10">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white p-1 shadow-sm ring-1 ring-black/5">
           <Image 
             src="/logo.jpg" 
             alt="NucleoVir Logo" 
             width={40} 
             height={40} 
-            className="object-cover"
+            className="object-contain w-full h-full rounded-lg"
           />
         </div>
         <div>
-          <h1 className="font-semibold text-sidebar-foreground tracking-tight leading-none text-lg">SYNAPSE</h1>
-          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">NucleoVir</p>
+          <h1 className="font-bold text-sidebar-foreground tracking-[0.2em] leading-none text-xl">SYNAPSE</h1>
         </div>
       </div>
 

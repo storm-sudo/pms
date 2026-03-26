@@ -81,22 +81,19 @@ export default function LoginPage() {
             </div>
 
             <Card className="w-full max-w-md border-slate-800 bg-slate-900/50 backdrop-blur-xl relative z-10 shadow-2xl shadow-blue-500/5">
-                <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-blue-500/10 overflow-hidden ring-1 ring-white/20">
+                <CardHeader className="text-center space-y-4 pt-8">
+                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-white p-2 shadow-2xl shadow-blue-500/20 ring-4 ring-slate-900/50 transition-transform hover:scale-105 duration-300">
                         <Image 
                             src="/logo.jpg" 
                             alt="NucleoVir Logo" 
-                            width={80} 
-                            height={80} 
-                            className="object-cover"
+                            width={96} 
+                            height={96} 
+                            className="object-contain w-full h-full rounded-2xl"
                         />
                     </div>
-                    <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-50">
+                    <CardTitle className="text-4xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-slate-50 to-slate-400">
                         SYNAPSE
                     </CardTitle>
-                    <CardDescription className="text-slate-400 font-medium tracking-widest uppercase text-xs">
-                        NucleoVir Therapeutics
-                    </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-2">
                     <form onSubmit={handleLogin} className="space-y-5">

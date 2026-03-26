@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { registerUser, isValidNTEmail } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -95,14 +96,19 @@ export default function RegisterPage() {
             </div>
 
             <Card className="w-full max-w-md border-slate-800 bg-slate-900/50 backdrop-blur-xl relative z-10 shadow-2xl shadow-indigo-500/5">
-                <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                        <Dna className="h-7 w-7 text-white" />
+                <CardHeader className="text-center space-y-4 pt-8">
+                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-3xl bg-white p-2 shadow-2xl shadow-blue-500/20 ring-4 ring-slate-900/50 transition-transform hover:scale-105 duration-300">
+                        <Image 
+                            src="/logo.jpg" 
+                            alt="NucleoVir Logo" 
+                            width={96} 
+                            height={96} 
+                            className="object-contain w-full h-full rounded-2xl"
+                        />
                     </div>
-                    <CardTitle className="text-2xl font-bold tracking-tight text-slate-50">Create Account</CardTitle>
-                    <CardDescription className="text-slate-400">
-                        Join the Synapse project management portal
-                    </CardDescription>
+                    <CardTitle className="text-4xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-b from-slate-50 to-slate-400">
+                        SYNAPSE
+                    </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-2">
                     <form onSubmit={handleRegister} className="space-y-4">
