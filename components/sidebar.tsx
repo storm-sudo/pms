@@ -56,6 +56,7 @@ const navigation = [
 
 const adminNavigation = [
   { name: 'User Management', href: '/team/management', icon: Users },
+  { name: 'Task Assignment', href: '/admin/tasks', icon: ListTodo },
   { name: 'Team', href: '/team', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
@@ -91,6 +92,8 @@ export function Sidebar() {
       status: 'todo',
       subtasks: [],
       comments: [],
+      logs: [],
+      summary: '',
       tags: [],
       assigneeIds: [],
       order: tasks.filter(t => t.projectId === projectId).length,
