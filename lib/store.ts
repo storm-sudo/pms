@@ -47,6 +47,7 @@ export interface AppActions {
   approveUser: (userId: string) => void;
   rejectUser: (userId: string) => void;
   addUser: (user: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => void;
+  addTaskLog: (taskId: string, log: { content: string; hoursSpent: number }) => void;
 }
 
 export type AppContextType = AppState & AppActions;

@@ -14,7 +14,9 @@ import {
   AlertTriangle,
   Trash2,
   ChevronDown,
-  Shield
+  Shield,
+  Layers,
+  History
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -23,6 +25,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { Card } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -43,7 +46,7 @@ import { Priority, TaskStatus, Subtask } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export function TaskDetailPanel() {
-  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, deleteTask, settings } = useApp();
+  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, addTaskLog, deleteTask, settings } = useApp();
   const task = useTask(selectedTaskId || undefined);
   const project = useProject(task?.projectId);
   const users = useUsers();
@@ -54,6 +57,10 @@ export function TaskDetailPanel() {
   const [newSubtask, setNewSubtask] = useState('');
   const [bulkSubtasks, setBulkSubtasks] = useState('');
   const [showBulkAdd, setShowBulkAdd] = useState(false);
+  
+  const [logContent, setLogContent] = useState('');
+  const [logHours, setLogHours] = useState('');
+  const [showLogForm, setShowLogForm] = useState(false);
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
@@ -127,6 +134,28 @@ export function TaskDetailPanel() {
       : [...task.assigneeIds, userId];
     
     updateTask(task.id, { assigneeIds: newIds });
+  };
+  
+  const assignTeam = (department: string) => {
+    const teamMembers = users.filter(u => u.department === department).map(u => u.id);
+    const uniqueIds = Array.from(new Set([...task.assigneeIds, ...teamMembers]));
+    updateTask(task.id, { assigneeIds: uniqueIds });
+    toast({ 
+      title: "Team Assigned", 
+      description: `Added all members from ${department} to this task.` 
+    });
+  };
+
+  const handleAddLog = () => {
+    if (!logContent.trim() || !logHours) return;
+    addTaskLog(task.id, {
+      content: logContent.trim(),
+      hoursSpent: parseFloat(logHours)
+    });
+    setLogContent('');
+    setLogHours('');
+    setShowLogForm(false);
+    toast({ title: "Progress Logged", description: "Your update has been stored." });
   };
 
   const handleAddSubtask = () => {
@@ -203,11 +232,20 @@ export function TaskDetailPanel() {
   return (
     <Sheet open={!!selectedTaskId} onOpenChange={(open) => !open && setSelectedTaskId(null)}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="space-y-0 pb-4">
+        <SheetHeader className="space-y-0 pb-4 border-b">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <p className="text-xs text-muted-foreground mb-1">{project?.name}</p>
-              <SheetTitle className="text-lg font-semibold pr-8">{task.title}</SheetTitle>
+              <div className="flex items-center gap-2 mb-1">
+                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0">
+                  {project?.name}
+                </Badge>
+                {task.actualHours && task.actualHours > 0 && (
+                   <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-[10px] font-bold px-1.5 py-0">
+                    {task.actualHours}h Logged
+                   </Badge>
+                )}
+              </div>
+              <SheetTitle className="text-xl font-black tracking-tight pr-8">{task.title}</SheetTitle>
             </div>
           </div>
         </SheetHeader>
@@ -270,26 +308,45 @@ export function TaskDetailPanel() {
               )}
             </div>
 
-            <Select onValueChange={toggleAssignee}>
-              <SelectTrigger>
-                <SelectValue placeholder="Add assignee..." />
-              </SelectTrigger>
-              <SelectContent>
-                {users.filter(u => !task.assigneeIds.includes(u.id)).map(user => (
-                  <SelectItem key={user.id} value={user.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-[10px]">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{user.name}</span>
-                      <span className="text-muted-foreground text-xs">({user.department})</span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select onValueChange={toggleAssignee}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Add member..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {users.filter(u => !task.assigneeIds.includes(u.id)).map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center gap-2 text-xs">
+                        <Avatar className="h-5 w-5">
+                          <AvatarFallback className="text-[8px]">
+                            {getInitials(user.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{user.name}</span>
+                        <span className="text-muted-foreground opacity-60">({user.department})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {currentUser.role === 'admin' && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10 px-3 gap-2 font-bold text-[10px] uppercase tracking-widest border-2">
+                      <Layers className="h-3.5 w-3.5" />
+                      Team
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 font-bold text-[10px] uppercase tracking-widest">
+                    <DropdownMenuItem onClick={() => assignTeam('AI')}>Assign AI Team</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => assignTeam('Mol Bio')}>Assign Mol Bio Team</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => assignTeam('Bioinfo')}>Assign Bioinfo Team</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => assignTeam('Leadership')}>Assign Leadership</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+            </div>
           </div>
 
           {/* Reviewer */}
@@ -388,15 +445,110 @@ export function TaskDetailPanel() {
 
           <Separator />
 
-          {/* Description */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Description</label>
-            <Textarea
-              placeholder="Add a description..."
-              value={task.description || ''}
-              onChange={(e) => updateTask(task.id, { description: e.target.value })}
-              rows={3}
-            />
+          {/* Description & Employee Summary */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                Description
+              </label>
+              <Textarea
+                placeholder="Add a description..."
+                value={task.description || ''}
+                onChange={(e) => updateTask(task.id, { description: e.target.value })}
+                rows={3}
+                className="bg-accent/30 border-none resize-none focus-visible:ring-blue-500/30"
+              />
+            </div>
+
+            <div className="space-y-2 pt-2 border-t border-dashed">
+              <label className="text-sm font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 flex items-center justify-between">
+                <span>Employee Summary</span>
+                <Badge variant="outline" className="text-[9px] border-blue-500/20 text-blue-500">Required</Badge>
+              </label>
+              <Textarea
+                placeholder="Briefly explain what's done or pending..."
+                value={task.summary || ''}
+                onChange={(e) => updateTask(task.id, { summary: e.target.value })}
+                rows={2}
+                className="bg-blue-500/5 border-blue-500/10 resize-none font-medium italic text-sm"
+              />
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Work Logs - NEW SECTION */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Work Discovery Logs
+              </label>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-7 text-[10px] font-bold uppercase tracking-widest border-2 hover:bg-emerald-500 hover:text-white transition-all"
+                onClick={() => setShowLogForm(!showLogForm)}
+              >
+                {showLogForm ? 'Cancel' : 'Log Hours'}
+              </Button>
+            </div>
+
+            {showLogForm && (
+              <Card className="p-3 bg-muted/30 border-2 border-dashed border-emerald-500/30 space-y-3">
+                <div className="grid grid-cols-3 gap-2">
+                  <Input 
+                    placeholder="Hours" 
+                    type="number" 
+                    className="col-span-1 h-8 text-sm font-bold"
+                    value={logHours}
+                    onChange={(e) => setLogHours(e.target.value)}
+                  />
+                  <Input 
+                    placeholder="What did you do?" 
+                    className="col-span-2 h-8 text-sm"
+                    value={logContent}
+                    onChange={(e) => setLogContent(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full h-8 bg-emerald-600 hover:bg-emerald-700 font-bold uppercase text-[10px] tracking-widest" onClick={handleAddLog}>
+                  Save Progress Log
+                </Button>
+              </Card>
+            )}
+
+            <div className="space-y-2">
+              {task.logs?.map(log => (
+                <div key={log.id} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 space-y-1 group">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-500">{log.userName}</span>
+                      <span className="text-[10px] text-muted-foreground/60">{new Date(log.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-none font-black">{log.hoursSpent}h</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{log.content}</p>
+                </div>
+              ))}
+              {(!task.logs || task.logs.length === 0) && (
+                <div className="text-center py-6 border-2 border-dashed rounded-xl opacity-30">
+                  <Clock className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-xs font-bold uppercase tracking-widest">No logs yet</p>
+                </div>
+              )}
+            </div>
+
+            {/* Time Metrics Card */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3 rounded-xl bg-accent/50 border space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/60">Total Duration</p>
+                <p className="text-lg font-black">{Math.floor((new Date().getTime() - new Date(task.createdAt).getTime()) / (1000 * 60 * 60))}h <span className="text-xs font-medium text-muted-foreground">since creation</span></p>
+              </div>
+              <div className="p-3 rounded-xl bg-blue-500/5 border border-blue-500/10 space-y-1">
+                <p className="text-[9px] font-black uppercase tracking-widest text-blue-600/60">Billable Effort</p>
+                <p className="text-lg font-black text-blue-600">{task.actualHours || 0}h <span className="text-xs font-medium opacity-60">logged</span></p>
+              </div>
+            </div>
           </div>
 
           {/* Subtasks */}

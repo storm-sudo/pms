@@ -155,6 +155,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString();
     const newTask: Task = {
       ...task,
+      subtasks: [],
+      comments: [],
+      logs: [],
+      summary: '',
+      order: 0,
       id: `t${generateId()}`,
       createdAt: now,
       updatedAt: now,
@@ -228,6 +233,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       status: 'todo' as const,
       subtasks: [],
       comments: [],
+      logs: [],
+      summary: '',
       tags: [],
       assigneeIds: [],
       order: maxOrder + idx + 1,
@@ -388,6 +395,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     toast({ title: 'User Created', description: `${newUser.name} has been added to the team.` });
   }, []);
+  
+  const addTaskLog = useCallback((taskId: string, log: { content: string; hoursSpent: number }) => {
+    const id = `log_${generateId()}`;
+    const now = new Date().toISOString();
+    const newLog = {
+      ...log,
+      id,
+      userId: state.currentUser.id,
+      userName: state.currentUser.name,
+      createdAt: now,
+    };
+
+    setState(s => ({
+      ...s,
+      tasks: s.tasks.map(t =>
+        t.id === taskId
+          ? { 
+              ...t, 
+              logs: [...(t.logs || []), newLog], 
+              actualHours: (t.actualHours || 0) + log.hoursSpent,
+              updatedAt: now 
+            }
+          : t
+      ),
+    }));
+  }, [state.currentUser]);
 
   const contextValue = {
     ...state,
@@ -415,6 +448,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     approveUser,
     rejectUser,
     addUser,
+    addTaskLog,
   };
 
   return (

@@ -43,6 +43,15 @@ export interface Comment {
   isLeadershipNote?: boolean; // For private leadership notes
 }
 
+export interface TaskLog {
+  id: string;
+  userId: string;
+  userName: string;
+  content: string; // "how it was done"
+  hoursSpent: number;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -56,6 +65,8 @@ export interface Task {
   completedDate?: string;
   subtasks: Subtask[];
   comments: Comment[];
+  logs: TaskLog[];
+  summary?: string; // Employee-provided summary
   dependencies?: string[]; // Task IDs that block this task
   blockedBy?: string[]; // Task IDs that block this task (alias)
   blockedReason?: string;
