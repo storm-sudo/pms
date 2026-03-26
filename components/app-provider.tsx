@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
 import { User, Project, Task, Comment, AppSettings, TaskStatus, Priority } from '@/lib/types';
-import { logoutUser, getSession, getLoggedInUser } from '@/lib/auth';
+import { logoutUser, getSession, getLoggedInUser, registerUserByAdmin } from '@/lib/auth';
 import { toast } from '@/components/ui/use-toast';
 import { notificationService } from '@/lib/notifications';
 
@@ -349,6 +349,46 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const addUser = useCallback((userData: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => {
+    const id = `user_${generateId()}`;
+    const now = new Date().toISOString();
+    
+    const newUser: User = {
+      ...userData,
+      id,
+      status: 'approved', // Admin created users are approved by default
+      joinedDate: now,
+      lastActive: now,
+      workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+    };
+
+    // 1. Add to auth storage
+    registerUserByAdmin({
+      id,
+      name: newUser.name,
+      email: newUser.email,
+      password: userData.password || 'dmin123', // Default password
+      status: 'approved',
+      createdAt: now
+    });
+
+    // 2. Add to app state
+    setState(s => ({ ...s, users: [...s.users, newUser] }));
+
+    // 3. Notify user via email
+    notificationService.sendEmail(
+      newUser.email,
+      'SYNAPSE: Account Created',
+      `Dear ${newUser.name.split(' ')[0]}, your account has been created by an administrator.<br><br>
+      <strong>Login Details:</strong><br>
+      Email: ${newUser.email}<br>
+      Password: ${userData.password || 'dmin123'}<br><br>
+      You can now log in to the portal.`
+    );
+
+    toast({ title: 'User Created', description: `${newUser.name} has been added to the team.` });
+  }, []);
+
   const contextValue = {
     ...state,
     setCurrentUser,
@@ -374,6 +414,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateSettings,
     approveUser,
     rejectUser,
+    addUser,
   };
 
   return (

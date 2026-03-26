@@ -7,6 +7,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 import { 
   Users, 
   Search, 
@@ -20,9 +38,17 @@ import {
 } from "lucide-react"
 
 export default function UserManagementPage() {
-  const { users, approveUser, rejectUser } = useApp()
+  const { users, approveUser, rejectUser, addUser } = useApp()
   const isAdmin = useIsAdmin()
   const [searchQuery, setSearchQuery] = useState("")
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  
+  // New user form state
+  const [newName, setNewName] = useState("")
+  const [newEmail, setNewEmail] = useState("")
+  const [newPassword, setNewPassword] = useState("dmin123")
+  const [newRole, setNewRole] = useState<"admin" | "member">("member")
+  const [newDept, setNewDept] = useState("Mol Bio")
 
   if (!isAdmin) {
     return (
@@ -143,8 +169,117 @@ export default function UserManagementPage() {
               Review registration requests and manage team access
             </p>
           </div>
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-            <Users className="h-5 w-5 text-primary" />
+          <div className="flex items-center gap-4">
+            <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
+                  <UserPlus className="h-4 w-4" />
+                  Create User
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px] bg-slate-900 border-slate-800 text-slate-50">
+                <DialogHeader>
+                  <DialogTitle>Create New User</DialogTitle>
+                  <DialogDescription className="text-slate-400">
+                    Add a new employee to the system. They will be automatically approved.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="name" className="text-slate-300">Full Name</Label>
+                    <Input 
+                      id="name" 
+                      value={newName} 
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="e.g. John Doe"
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="email" className="text-slate-300">Email (must end in nt@gmail.com)</Label>
+                    <Input 
+                      id="email" 
+                      type="email"
+                      value={newEmail} 
+                      onChange={(e) => setNewEmail(e.target.value)}
+                      placeholder="e.g. name-nt@gmail.com"
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="pass" className="text-slate-300">Password</Label>
+                    <Input 
+                      id="pass" 
+                      value={newPassword} 
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-slate-300">Role</Label>
+                      <Select value={newRole} onValueChange={(v: any) => setNewRole(v)}>
+                        <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-slate-300">Department</Label>
+                      <Select value={newDept} onValueChange={setNewDept}>
+                        <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectItem value="Mol Bio">Mol Bio</SelectItem>
+                          <SelectItem value="AI">AI</SelectItem>
+                          <SelectItem value="Bioinfo">Bioinfo</SelectItem>
+                          <SelectItem value="Leadership">Leadership</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsCreateOpen(false)}
+                    className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-50"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={() => {
+                      if (!newName || !newEmail || !newEmail.endsWith('nt@gmail.com')) {
+                        toast.error("Valid name and nt@gmail.com email required");
+                        return;
+                      }
+                      addUser({
+                        name: newName,
+                        email: newEmail,
+                        password: newPassword,
+                        role: newRole,
+                        department: newDept as any,
+                        avatar: ""
+                      });
+                      setIsCreateOpen(false);
+                      setNewName("");
+                      setNewEmail("");
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
+                    Add User
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Users className="h-5 w-5 text-primary" />
+            </div>
           </div>
         </div>
       </div>

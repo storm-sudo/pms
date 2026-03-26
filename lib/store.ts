@@ -46,6 +46,7 @@ export interface AppActions {
   updateSettings: (updates: Partial<AppSettings>) => void;
   approveUser: (userId: string) => void;
   rejectUser: (userId: string) => void;
+  addUser: (user: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => void;
 }
 
 export type AppContextType = AppState & AppActions;

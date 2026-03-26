@@ -86,6 +86,15 @@ export function registerUser(name: string, email: string, password: string): { s
     return { success: true };
 }
 
+// ── Admin-created registration ──
+export function registerUserByAdmin(user: RegisteredUser): void {
+    const users = getRegisteredUsers();
+    if (!users.some(u => u.id === user.id || u.email === user.email)) {
+        users.push(user);
+        saveRegisteredUsers(users);
+    }
+}
+
 // ── Login ──
 export function loginUser(email: string, password: string): { success: boolean; user?: RegisteredUser; error?: string } {
     const normalizedEmail = email.toLowerCase().trim();
