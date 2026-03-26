@@ -346,7 +346,7 @@ export default function TimelinePage() {
                                 </span>
                               </div>
                               {/* Progress indicator */}
-                              {task.progress > 0 && (
+                              {(task.progress ?? 0) > 0 && (
                                 <div
                                   className="absolute bottom-0 left-0 h-1 rounded-b-md bg-white/30"
                                   style={{ width: `${task.progress}%` }}
@@ -375,13 +375,17 @@ export default function TimelinePage() {
 
           {/* Today Line */}
           <div
-            className="pointer-events-none absolute top-0 h-full w-0.5 bg-primary"
+            className="pointer-events-none absolute top-0 z-20 h-full border-l-2 border-dashed border-primary/50"
             style={{
-              left: `calc(256px + ${
+              left: `calc(16rem + ${
                 (differenceInDays(new Date(), dateRange[0]) / dateRange.length) * 100
               }%)`,
             }}
-          />
+          >
+            <div className="absolute top-0 -translate-x-1/2 rounded-full bg-primary px-2 py-0.5 text-[10px] font-bold text-white shadow-sm">
+                Today
+            </div>
+          </div>
         </div>
       </div>
 

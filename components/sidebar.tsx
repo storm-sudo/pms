@@ -388,6 +388,28 @@ export function Sidebar() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
+            {isAdmin && (
+              <>
+                <DropdownMenuLabel>Switch User (Demo)</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {allUsers.slice(0, 8).map((user) => (
+                  <DropdownMenuItem
+                    key={user.id}
+                    onClick={() => setCurrentUser(user)}
+                    className="flex items-center gap-2 cursor-pointer"
+                  >
+                    <Avatar className="h-6 w-6">
+                      <AvatarFallback className="text-[10px]">{getInitials(user.name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium">{user.name}</span>
+                      <span className="text-[10px] text-muted-foreground">{user.role}</span>
+                    </div>
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuSeparator />
+              </>
+            )}
             <DropdownMenuItem
               onClick={() => {
                 logout();
