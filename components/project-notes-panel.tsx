@@ -21,6 +21,7 @@ export function ProjectNotesPanel() {
   const currentUser = useCurrentUser();
   
   const [newComment, setNewComment] = useState('');
+  const [newElnUrl, setNewElnUrl] = useState('');
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
@@ -33,6 +34,27 @@ export function ProjectNotesPanel() {
       content: newComment.trim(),
     });
     setNewComment('');
+  };
+
+  const handleAddElnLink = () => {
+    const url = newElnUrl.trim();
+    if (!url) return;
+    
+    const existingLink = project.elnLinks.find(l => l.userId === currentUser.id);
+    let updatedLinks;
+    
+    if (existingLink) {
+      updatedLinks = project.elnLinks.map(l => 
+        l.userId === currentUser.id 
+          ? { ...l, urls: [...l.urls, url] }
+          : l
+      );
+    } else {
+      updatedLinks = [...project.elnLinks, { userId: currentUser.id, urls: [url] }];
+    }
+    
+    updateProject(project.id, { elnLinks: updatedLinks });
+    setNewElnUrl('');
   };
 
   const memberUsers = project.memberIds.map(id => users.find(u => u.id === id)).filter(Boolean);
@@ -197,37 +219,20 @@ export function ProjectNotesPanel() {
               <p className="text-sm font-medium">Manage My ELN Links</p>
               <div className="flex gap-2">
                 <Input 
-                  id="new-eln-url"
                   placeholder="https://..."
-                  className="flex-1 h-9 text-xs"
+                  className="flex-1 h-9 text-xs bg-accent/30 border-none focus-visible:ring-blue-500/30"
+                  value={newElnUrl}
+                  onChange={(e) => setNewElnUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddElnLink()}
                 />
                 <Button 
                   size="sm" 
-                  className="h-9"
-                  onClick={() => {
-                    const input = document.getElementById('new-eln-url') as HTMLInputElement;
-                    const url = input.value.trim();
-                    if (!url) return;
-                    
-                    const existingLink = project.elnLinks.find(l => l.userId === currentUser.id);
-                    let updatedLinks;
-                    
-                    if (existingLink) {
-                      updatedLinks = project.elnLinks.map(l => 
-                        l.userId === currentUser.id 
-                          ? { ...l, urls: [...l.urls, url] }
-                          : l
-                      );
-                    } else {
-                      updatedLinks = [...project.elnLinks, { userId: currentUser.id, urls: [url] }];
-                    }
-                    
-                    updateProject(project.id, { elnLinks: updatedLinks });
-                    input.value = '';
-                  }}
+                  className="h-9 bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest"
+                  onClick={handleAddElnLink}
+                  disabled={!newElnUrl.trim()}
                 >
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Link
+                  Add Experiment Link
                 </Button>
               </div>
             </div>

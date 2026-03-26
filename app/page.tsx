@@ -1,6 +1,6 @@
 'use client';
 
-import { useIsAdmin, useCurrentUser, useMyTasks } from '@/lib/store';
+import { useIsAdmin, useCurrentUser, useMyTasks, useApp } from '@/lib/store';
 import { AlertBanner } from '@/components/dashboard/alert-banner';
 import { PriorityActionsPanel } from '@/components/dashboard/priority-actions';
 import { AtRiskProjects } from '@/components/dashboard/at-risk-projects';
@@ -21,7 +21,7 @@ import {
   Target
 } from 'lucide-react';
 import Link from 'next/link';
-import { priorityColors, statusColors } from '@/lib/mock-data';
+import { priorityColors } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 
 function AdminDashboard() {
@@ -62,6 +62,7 @@ function AdminDashboard() {
 function MemberDashboard() {
   const currentUser = useCurrentUser();
   const myTasks = useMyTasks();
+  const { setSelectedTaskId } = useApp();
   
   const today = new Date().toISOString().split('T')[0];
   const overdueTasks = myTasks.filter(t => t.status !== 'done' && t.dueDate && t.dueDate < today);
@@ -96,14 +97,14 @@ function MemberDashboard() {
       {/* Quick Stats */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-500/10">
-                <ListTodo className="h-5 w-5 text-blue-500" />
+          <CardContent className="p-4 text-emerald-600">
+            <div className="flex items-center gap-3 font-black">
+              <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
+                <ListTodo className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{todoTasks.length + inProgressTasks.length}</p>
-                <p className="text-xs text-muted-foreground">Active Tasks</p>
+                <p className="text-2xl">{todoTasks.length + inProgressTasks.length}</p>
+                <p className="text-xs uppercase tracking-widest opacity-60">Active Tasks</p>
               </div>
             </div>
           </CardContent>
@@ -111,19 +112,16 @@ function MemberDashboard() {
         
         <Card className={overdueTasks.length > 0 ? 'border-destructive/50' : ''}>
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 font-black">
               <div className={cn(
-                'p-2 rounded-lg',
-                overdueTasks.length > 0 ? 'bg-destructive/10' : 'bg-muted'
+                'p-2 rounded-lg text-emerald-600',
+                overdueTasks.length > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted'
               )}>
-                <Clock className={cn(
-                  'h-5 w-5',
-                  overdueTasks.length > 0 ? 'text-destructive' : 'text-muted-foreground'
-                )} />
+                <Clock className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{overdueTasks.length}</p>
-                <p className="text-xs text-muted-foreground">Overdue</p>
+                <p className="text-2xl">{overdueTasks.length}</p>
+                <p className="text-xs uppercase tracking-widest opacity-60 text-muted-foreground">Overdue</p>
               </div>
             </div>
           </CardContent>
@@ -131,13 +129,13 @@ function MemberDashboard() {
         
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-emerald-500/10">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+            <div className="flex items-center gap-3 font-black">
+              <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-500">
+                <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{completedTasks.length}</p>
-                <p className="text-xs text-muted-foreground">Completed</p>
+                <p className="text-2xl">{completedTasks.length}</p>
+                <p className="text-xs uppercase tracking-widest opacity-60 text-muted-foreground">Completed</p>
               </div>
             </div>
           </CardContent>
@@ -145,13 +143,13 @@ function MemberDashboard() {
         
         <Card>
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Target className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-3 font-black">
+              <div className="p-2 rounded-lg bg-primary/10 text-primary uppercase italic">
+                <Target className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-2xl font-bold">{completionRate}%</p>
-                <p className="text-xs text-muted-foreground">Completion Rate</p>
+                <p className="text-2xl">{completionRate}%</p>
+                <p className="text-xs uppercase tracking-widest opacity-60 text-muted-foreground">Success Rate</p>
               </div>
             </div>
           </CardContent>
@@ -159,9 +157,9 @@ function MemberDashboard() {
       </div>
 
       {/* Activity Heatmap */}
-      <Card>
+      <Card className="border-2 shadow-xl shadow-blue-500/5">
         <CardHeader>
-          <CardTitle className="text-base">Activity Overview</CardTitle>
+          <CardTitle className="text-sm font-black uppercase tracking-widest">Research Activity Log</CardTitle>
         </CardHeader>
         <CardContent>
           <ActivityHeatmap userId={currentUser.id} />
@@ -171,37 +169,38 @@ function MemberDashboard() {
       {/* My Tasks */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Due Today */}
-        <Card>
+        <Card className="border-2">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Clock className="h-4 w-4 text-warning" />
-                Due Today
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <Clock className="h-4 w-4 text-amber-500" />
+                Deadlines: Today
               </CardTitle>
-              <Badge className="bg-warning text-warning-foreground">
+              <Badge className="bg-amber-500 text-white font-black">
                 {dueTodayTasks.length}
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
             {dueTodayTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No tasks due today
+              <p className="text-sm text-muted-foreground py-8 text-center italic font-medium">
+                No research deadlines due today.
               </p>
             ) : (
               <div className="space-y-2">
                 {dueTodayTasks.map((task) => (
-                  <div 
+                  <button 
                     key={task.id}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                    onClick={() => setSelectedTaskId(task.id)}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted border border-transparent hover:border-border transition-all text-left group"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{task.title}</p>
+                      <p className="font-bold text-sm truncate group-hover:text-blue-600 transition-colors uppercase italic">{task.title}</p>
                     </div>
-                    <Badge variant="outline" className={cn('text-xs', priorityColors[task.priority])}>
+                    <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest', priorityColors[task.priority as keyof typeof priorityColors])}>
                       {task.priority}
                     </Badge>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
@@ -209,52 +208,53 @@ function MemberDashboard() {
         </Card>
 
         {/* In Progress */}
-        <Card>
+        <Card className="border-2">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-                In Progress
+              <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-blue-600 animate-pulse" />
+                Active Exploration
               </CardTitle>
-              <Badge variant="secondary">{inProgressTasks.length}</Badge>
+              <Badge variant="secondary" className="font-black">{inProgressTasks.length}</Badge>
             </div>
           </CardHeader>
           <CardContent>
             {inProgressTasks.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                No tasks in progress
+              <p className="text-sm text-muted-foreground py-8 text-center italic font-medium">
+                No active exploration tasks.
               </p>
             ) : (
               <div className="space-y-2">
                 {inProgressTasks.slice(0, 5).map((task) => (
-                  <div 
+                  <button 
                     key={task.id}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted cursor-pointer transition-colors"
+                    onClick={() => setSelectedTaskId(task.id)}
+                    className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 hover:bg-muted border border-transparent hover:border-border transition-all text-left group"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{task.title}</p>
+                      <p className="font-bold text-sm truncate group-hover:text-blue-600 transition-colors uppercase italic">{task.title}</p>
                       {task.subtasks.length > 0 && (
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-2">
                           <Progress 
                             value={(task.subtasks.filter(s => s.completed).length / task.subtasks.length) * 100}
-                            className="h-1 flex-1"
+                            className="h-1 flex-1 bg-blue-100"
                           />
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-[10px] font-black text-muted-foreground">
                             {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}
                           </span>
                         </div>
                       )}
                     </div>
-                    <Badge variant="outline" className={cn('text-xs', priorityColors[task.priority])}>
+                    <Badge variant="outline" className={cn('text-[9px] font-black uppercase tracking-widest', priorityColors[task.priority as keyof typeof priorityColors])}>
                       {task.priority}
                     </Badge>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}
             <Link href="/tasks">
-              <Button variant="ghost" className="w-full mt-4 group">
-                View All My Tasks
+              <Button variant="ghost" className="w-full mt-4 group font-black uppercase text-[10px] tracking-widest">
+                Explore Full Directory
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>

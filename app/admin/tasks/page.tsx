@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { 
   Users, 
   Search, 
@@ -11,14 +11,14 @@ import {
   ArrowRight,
   ShieldCheck,
   UserPlus,
-  Filter
+  Plus
 } from 'lucide-react';
 import { useApp, useTasks, useUsers, useIsAdmin } from '@/lib/store';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
@@ -28,19 +28,20 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import { priorityColors, statusColors } from '@/lib/mock-data';
+import { statusColors } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 
 export default function AdminTasksPage() {
-  const { updateTask, projects } = useApp();
+  const { updateTask, projects, addTask } = useApp();
   const tasks = useTasks();
   const users = useUsers();
   const isAdmin = useIsAdmin();
@@ -48,7 +49,10 @@ export default function AdminTasksPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskProjectId, setNewTaskProjectId] = useState('');
 
   // Security check
   if (!isAdmin) {
@@ -103,6 +107,34 @@ export default function AdminTasksPage() {
     toast({ title: "Assignees Cleared", description: "All members removed from the task." });
   };
 
+  const handleCreateTask = () => {
+    if (!newTaskTitle.trim()) return;
+    const projectId = newTaskProjectId || projects[0]?.id;
+    if (!projectId) {
+      toast({ title: "No Project Found", description: "Please create a project first.", variant: "destructive" });
+      return;
+    }
+
+    addTask({
+      title: newTaskTitle.trim(),
+      projectId,
+      priority: 'medium',
+      status: 'todo',
+      subtasks: [],
+      comments: [],
+      logs: [],
+      summary: '',
+      tags: [],
+      assigneeIds: [],
+      order: tasks.filter(t => t.projectId === projectId).length,
+    });
+    
+    setNewTaskTitle('');
+    setNewTaskProjectId('');
+    setCreateDialogOpen(false);
+    toast({ title: "Task Created", description: "You can now assign it to members below." });
+  };
+
   return (
     <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Header */}
@@ -114,20 +146,61 @@ export default function AdminTasksPage() {
             </div>
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-600">Admin Control Center</span>
           </div>
-          <h1 className="text-4xl font-black tracking-tighter">TASK <span className="text-blue-600">ASSIGNMENT</span></h1>
-          <p className="text-muted-foreground text-sm font-medium">Distribute workloads across the NucleoVir team with precision.</p>
+          <h1 className="text-4xl font-black tracking-tighter uppercase italic">Assign <span className="text-blue-600">Workload</span></h1>
         </div>
+
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="h-12 px-6 gap-2 bg-blue-600 hover:bg-blue-700 font-black uppercase text-[10px] tracking-widest shadow-xl shadow-blue-500/20">
+              <Plus className="h-4 w-4" />
+              Create & Assign New Task
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-black uppercase tracking-widest text-sm text-blue-600">Initialize New Task</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Task Title</label>
+                <Input
+                  placeholder="Task name..."
+                  value={newTaskTitle}
+                  onChange={(e) => setNewTaskTitle(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateTask()}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest opacity-60">Assign to Project</label>
+                <Select value={newTaskProjectId || projects[0]?.id || ''} onValueChange={setNewTaskProjectId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {projects.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={handleCreateTask} className="w-full h-11 bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest" disabled={!newTaskTitle.trim()}>
+                Create Task
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left: Task Selection */}
-        <div className="lg:col-span-5 space-y-4">
+        <div className="lg:col-span-4 space-y-4">
           <Card className="border-2 shadow-xl shadow-blue-500/5 bg-background/50 backdrop-blur-xl">
             <CardHeader className="pb-3 pt-4 px-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                  placeholder="Search tasks to assign..." 
+                  placeholder="Search tasks..." 
                   className="pl-9 h-11 font-medium bg-muted/30 border-none focus-visible:ring-blue-500/30"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -160,38 +233,15 @@ export default function AdminTasksPage() {
                               {project?.name || 'General'}
                             </p>
                             <h3 className="font-bold text-sm leading-tight pr-4">{task.title}</h3>
-                            <div className="flex items-center gap-2 pt-1">
-                              <Badge variant="outline" className={cn(
-                                "text-[9px] px-1.5 py-0 border-none font-bold",
-                                isSelected ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-                              )}>
-                                {task.assigneeIds.length} Assignees
-                              </Badge>
-                              <div className={cn(
-                                "h-1.5 w-1.5 rounded-full",
-                                task.status === 'done' ? "bg-emerald-500" : "bg-blue-500"
-                              )} />
-                            </div>
                           </div>
                           <ArrowRight className={cn(
                             "h-4 w-4 transition-transform",
                             isSelected ? "translate-x-0 opacity-100" : "-translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
                           )} />
                         </div>
-                        {isSelected && (
-                          <div className="absolute top-0 right-0 p-1">
-                            <CheckCircle2 className="h-4 w-4 text-white/40" />
-                          </div>
-                        )}
                       </button>
                     );
                   })}
-                  {filteredTasks.length === 0 && (
-                    <div className="py-20 text-center space-y-3 opacity-30">
-                      <Search className="h-10 w-10 mx-auto" />
-                      <p className="font-black uppercase tracking-widest text-xs">No tasks found</p>
-                    </div>
-                  )}
                 </div>
               </ScrollArea>
             </CardContent>
@@ -199,7 +249,7 @@ export default function AdminTasksPage() {
         </div>
 
         {/* Right: Assignment Dashboard */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           {selectedTask ? (
             <Card className="border-2 shadow-2xl shadow-blue-500/10 border-blue-500/10 overflow-hidden min-h-[660px] animate-in slide-in-from-right-4 duration-500">
               <div className="h-2 bg-gradient-to-r from-blue-600 via-indigo-500 to-emerald-500" />
@@ -210,7 +260,7 @@ export default function AdminTasksPage() {
                        {selectedProject?.name || 'No Project'}
                     </Badge>
                     <div className="flex items-center gap-2">
-                      <div className={cn("h-2 w-2 rounded-full", statusColors[selectedTask.status])} />
+                      <div className={cn("h-2 w-2 rounded-full", statusColors[selectedTask.status as keyof typeof statusColors])} />
                       <span className="text-[10px] font-black uppercase tracking-widest opacity-60">
                         {selectedTask.status.replace('-', ' ')}
                       </span>
@@ -288,29 +338,20 @@ export default function AdminTasksPage() {
                               {user.department}
                             </p>
                           </div>
-                          <div className={cn(
-                            "h-5 w-5 rounded-full flex items-center justify-center transition-all",
-                            isAssigned ? "bg-blue-600 text-white scale-100" : "bg-muted text-transparent scale-0 shadow-inner"
-                          )}>
-                            <CheckCircle2 className="h-3 w-3" />
-                          </div>
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* Current Load Hint */}
-                <Separator className="bg-blue-500/10" />
                 <div className="p-5 rounded-2xl bg-blue-600/5 border border-blue-500/10 flex items-start gap-4">
                   <div className="h-10 w-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0">
                     <Clock className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="space-y-1">
-                    <h5 className="text-sm font-black uppercase tracking-tight">Assignment Summary</h5>
-                    <p className="text-xs text-muted-foreground leading-relaxed font-medium">
-                      You have assigned <span className="text-blue-600 font-bold">{selectedTask.assigneeIds.length} members</span> to this task. 
-                      Assignees will receive real-time notifications and this task will appear in their "My Tasks" view.
+                    <h5 className="text-sm font-black uppercase tracking-tight">Assignment Analytics</h5>
+                    <p className="text-xs text-muted-foreground font-medium">
+                      Current load: {selectedTask.assigneeIds.length} members. Assignees see this instantly.
                     </p>
                   </div>
                 </div>
@@ -318,11 +359,8 @@ export default function AdminTasksPage() {
             </Card>
           ) : (
             <div className="flex flex-col items-center justify-center h-full min-h-[600px] border-2 border-dashed rounded-3xl opacity-20">
-              <div className="h-20 w-20 rounded-full bg-blue-500/20 flex items-center justify-center mb-6">
-                 <ArrowRight className="h-10 w-10 -rotate-180" />
-              </div>
-              <p className="text-xl font-black uppercase tracking-[0.3em]">Select a task</p>
-              <p className="text-sm font-bold opacity-60">to manage assignments</p>
+              <ArrowRight className="h-12 w-12 mb-4" />
+              <p className="text-xl font-black uppercase tracking-[0.3em]">Select Task</p>
             </div>
           )}
         </div>

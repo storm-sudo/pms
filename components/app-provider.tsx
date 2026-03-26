@@ -174,6 +174,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         notificationService.notifyTaskAssignment(newTask, project, assignees, state.currentUser);
       }
     }
+
+    toast({
+      title: 'Task Created',
+      description: `"${newTask.title}" has been added successfully.`,
+    });
   }, [state.projects, state.users, state.currentUser]);
 
   const updateTask = useCallback((id: string, updates: Partial<Task>) => {

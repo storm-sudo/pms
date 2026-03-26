@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/components/app-provider'
 import { LayoutWrapper } from '@/components/layout-wrapper'
+import { Toaster } from '@/components/ui/toaster'
+import { Toaster as Sonner } from '@/components/ui/sonner'
 
 const geist = Geist({
   subsets: ["latin"],
@@ -37,6 +39,8 @@ export default function RootLayout({
           <LayoutWrapper>
             {children}
           </LayoutWrapper>
+          <Toaster />
+          <Sonner position="top-right" richColors />
         </AppProvider>
       </body>
     </html>

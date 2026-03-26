@@ -22,6 +22,7 @@ import { useApp, useIsAdmin, useProjects, useTasks } from '@/lib/store';
 import { allUsers } from '@/lib/mock-data';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { toast } from '@/components/ui/use-toast';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -84,7 +85,15 @@ export function Sidebar() {
   const handleQuickAddTask = useCallback(() => {
     if (!quickTaskTitle.trim()) return;
     const projectId = quickTaskProjectId || projects[0]?.id;
-    if (!projectId) return;
+    if (!projectId) {
+      toast({
+        title: "No Project Selected",
+        description: "Please select a project to add this task to.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     addTask({
       title: quickTaskTitle.trim(),
       projectId,
