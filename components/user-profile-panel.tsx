@@ -86,7 +86,7 @@ export function UserProfilePanel() {
 
   return (
     <Sheet open={!!selectedUserId} onOpenChange={(open) => !open && setSelectedUserId(null)}>
-      <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto overflow-x-hidden">
         <SheetHeader className="space-y-6 pb-6 border-b">
           <div className="flex items-center justify-between w-full pt-2">
             <div className="flex items-center gap-5">

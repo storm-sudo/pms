@@ -216,6 +216,15 @@
   background: oklch(0.6 0 0 / 0.5);
 }
 
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Translucent glass effect */
 .glass {
   backdrop-filter: blur(20px);

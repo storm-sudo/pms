@@ -123,10 +123,7 @@ export function ActivityHeatmap({ userId, className, compact = false }: Activity
         )}
         
         <TooltipProvider delayDuration={100}>
-          <div className={cn(
-            "flex gap-[3px] overflow-x-auto pb-2 scrollbar-hide",
-            "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          )}>
+          <div className="flex gap-[3px] overflow-x-auto pb-2 scrollbar-hide">
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex flex-col gap-[3px]">
                 {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {
