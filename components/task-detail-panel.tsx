@@ -13,7 +13,8 @@ import {
   Clock,
   AlertTriangle,
   Trash2,
-  ChevronDown
+  ChevronDown,
+  Shield
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,7 @@ import { Priority, TaskStatus, Subtask } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export function TaskDetailPanel() {
-  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, deleteTask } = useApp();
+  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, deleteTask, settings } = useApp();
   const task = useTask(selectedTaskId || undefined);
   const project = useProject(task?.projectId);
   const users = useUsers();
@@ -61,10 +62,21 @@ export function TaskDetailPanel() {
   const assignee = users.find(u => u.id === task.assigneeId);
 
   const handleStatusChange = (status: TaskStatus) => {
-    if (status === 'done' && currentUser.role !== 'admin') {
+    if (status === 'done') {
+      if (settings.requireReviewer && !task.approvedBy && currentUser.role !== 'admin') {
+        toast({
+          title: "Approval Required",
+          description: "This task must be approved by an Admin or Project Lead before completion.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (status === 'done' && currentUser.role !== 'admin' && !task.approvedBy) {
       toast({
         title: "Permission Denied",
-        description: "Only Admins (YO/AR/SK) can close tasks.",
+        description: "Only Admins (YO/AR/SK) can close tasks directly.",
         variant: "destructive",
       });
       return;
@@ -72,6 +84,31 @@ export function TaskDetailPanel() {
     updateTask(task.id, { 
       status,
       completedDate: status === 'done' ? new Date().toISOString().split('T')[0] : undefined
+    });
+  };
+
+  const handleApprove = () => {
+    const isAdmin = currentUser.role === 'admin';
+    const isLead = project?.leadId === currentUser.id;
+    const isReviewer = task.reviewerId === currentUser.id;
+
+    if (!isAdmin && !isLead && !isReviewer) {
+      toast({
+        title: "Permission Denied",
+        description: "You do not have permission to approve this task.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    updateTask(task.id, { 
+      approvedBy: currentUser.id,
+      status: 'done',
+      completedDate: new Date().toISOString().split('T')[0]
+    });
+    toast({
+      title: "Task Approved",
+      description: `Task has been approved by ${currentUser.name} and marked as complete.`,
     });
   };
 
@@ -236,6 +273,50 @@ export function TaskDetailPanel() {
             </Select>
           </div>
 
+          {/* Reviewer */}
+          {settings.requireReviewer && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Shield className="h-4 w-4 text-emerald-500" />
+                Reviewer
+              </label>
+              <Select value={task.reviewerId || 'unassigned'} onValueChange={(id) => updateTask(task.id, { reviewerId: id === 'unassigned' ? undefined : id })}>
+                <SelectTrigger>
+                  <SelectValue>
+                    {task.reviewerId ? (
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(users.find(u => u.id === task.reviewerId)?.name || 'U')}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{users.find(u => u.id === task.reviewerId)?.name}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">Select a reviewer</span>
+                    )}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {users.filter(u => u.role === 'admin' || project?.leadId === u.id).map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="text-[10px]">
+                            {getInitials(user.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span>{user.name}</span>
+                        <span className="text-muted-foreground text-xs">({user.role === 'admin' ? 'Admin' : 'Lead'})</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {/* Due Date */}
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-2">
@@ -248,6 +329,30 @@ export function TaskDetailPanel() {
               onChange={(e) => updateTask(task.id, { dueDate: e.target.value || undefined })}
             />
           </div>
+
+          {/* Approval Action */}
+          {task.status === 'review' && !task.approvedBy && (
+            <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 space-y-3">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                <CheckCircle2 className="h-5 w-5" />
+                <span className="font-semibold">Ready for Approval</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                This task has been submitted for review. An Admin or the assigned Reviewer can approve it.
+              </p>
+              <Button onClick={handleApprove} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
+                Approve & Mark Complete
+              </Button>
+            </div>
+          )}
+
+          {/* Approved By Badge */}
+          {task.approvedBy && (
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+              <span className="text-sm font-medium">Approved by {users.find(u => u.id === task.approvedBy)?.name}</span>
+            </div>
+          )}
 
           {/* Blocked Warning */}
           {task.status === 'blocked' && (

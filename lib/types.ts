@@ -59,10 +59,51 @@ export interface Task {
   estimatedHours?: number;
   actualHours?: number;
   progress?: number; // 0-100 progress percentage
+  reviewerId?: string;
+  approvedBy?: string; // User ID of the person who approved it
   tags: string[];
   order: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AppSettings {
+  // Accountability
+  autoEscalate: boolean;
+  escalationThreshold: number;
+  requireBlockerReason: boolean;
+  mandatoryUpdates: boolean;
+  updateFrequency: string;
+  trackTimeEstimates: boolean;
+  showVelocityMetrics: boolean;
+  
+  // Notifications
+  emailNotifications: boolean;
+  slackNotifications: boolean;
+  taskAssigned: boolean;
+  taskDueSoon: boolean;
+  taskOverdue: boolean;
+  mandatoryEmailOnDueDate: boolean;
+  dailyOverdueReminders: boolean;
+  projectUpdates: boolean;
+  dailyDigest: boolean;
+  weeklyReport: boolean;
+  
+  // Team
+  defaultAssignee: string;
+  workloadBalancing: boolean;
+  maxTasksPerPerson: number;
+  requireReviewer: boolean;
+  crossFunctionalVisibility: boolean;
+  
+  // Workflow
+  autoArchiveCompleted: boolean;
+  archiveAfterDays: number;
+  requireDueDate: boolean;
+  requirePriority: boolean;
+  enableDependencies: boolean;
+  enableSubtasks: boolean;
+  enableTimeTracking: boolean;
 }
 
 export interface Project {

@@ -30,44 +30,30 @@ import {
 } from "lucide-react"
 
 export default function SettingsPage() {
-  const { currentUser, setTheme, theme } = useApp()
+  const { currentUser, setTheme, theme, settings, updateSettings } = useApp()
   
-  // Notification Settings
-  const [emailNotifications, setEmailNotifications] = useState(true)
-  const [slackNotifications, setSlackNotifications] = useState(true)
-  const [taskAssigned, setTaskAssigned] = useState(true)
-  const [taskDueSoon, setTaskDueSoon] = useState(true)
-  const [taskOverdue, setTaskOverdue] = useState(true)
-  const [mandatoryEmailOnDueDate, setMandatoryEmailOnDueDate] = useState(true)
-  const [dailyOverdueReminders, setDailyOverdueReminders] = useState(true)
-  const [projectUpdates, setProjectUpdates] = useState(true)
-  const [dailyDigest, setDailyDigest] = useState(true)
-  const [weeklyReport, setWeeklyReport] = useState(true)
+  // Array helpers for sliders (since store stores numbers, and slider wants array)
+  const escalationThreshold = [settings.escalationThreshold]
+  const setEscalationThreshold = (val: number[]) => updateSettings({ escalationThreshold: val[0] })
   
-  // Accountability Settings
-  const [autoEscalate, setAutoEscalate] = useState(true)
-  const [escalationThreshold, setEscalationThreshold] = useState([24])
-  const [requireBlockerReason, setRequireBlockerReason] = useState(true)
-  const [mandatoryUpdates, setMandatoryUpdates] = useState(true)
-  const [updateFrequency, setUpdateFrequency] = useState("daily")
-  const [trackTimeEstimates, setTrackTimeEstimates] = useState(true)
-  const [showVelocityMetrics, setShowVelocityMetrics] = useState(true)
+  const maxTasksPerPerson = [settings.maxTasksPerPerson]
+  const setMaxTasksPerPerson = (val: number[]) => updateSettings({ maxTasksPerPerson: val[0] })
   
-  // Team Settings
-  const [defaultAssignee, setDefaultAssignee] = useState("auto")
-  const [workloadBalancing, setWorkloadBalancing] = useState(true)
-  const [maxTasksPerPerson, setMaxTasksPerPerson] = useState([8])
-  const [requireReviewer, setRequireReviewer] = useState(true)
-  const [crossFunctionalVisibility, setCrossFunctionalVisibility] = useState(true)
-  
-  // Workflow Settings
-  const [autoArchiveCompleted, setAutoArchiveCompleted] = useState(true)
-  const [archiveAfterDays, setArchiveAfterDays] = useState([7])
-  const [requireDueDate, setRequireDueDate] = useState(true)
-  const [requirePriority, setRequirePriority] = useState(true)
-  const [enableDependencies, setEnableDependencies] = useState(true)
-  const [enableSubtasks, setEnableSubtasks] = useState(true)
-  const [enableTimeTracking, setEnableTimeTracking] = useState(true)
+  const archiveAfterDays = [settings.archiveAfterDays]
+  const setArchiveAfterDays = (val: number[]) => updateSettings({ archiveAfterDays: val[0] })
+
+  // Rest of the settings are simple booleans or strings
+  const {
+    emailNotifications, slackNotifications, taskAssigned, taskDueSoon, taskOverdue,
+    mandatoryEmailOnDueDate, dailyOverdueReminders, projectUpdates, dailyDigest, weeklyReport,
+    autoEscalate, requireBlockerReason, mandatoryUpdates, updateFrequency,
+    trackTimeEstimates, showVelocityMetrics, defaultAssignee, workloadBalancing,
+    requireReviewer, crossFunctionalVisibility, autoArchiveCompleted,
+    requireDueDate, requirePriority, enableDependencies, enableSubtasks, enableTimeTracking
+  } = settings
+
+  // Helper for booleans/strings
+  const toggle = (key: keyof typeof settings) => (val: any) => updateSettings({ [key]: val })
 
   return (
     <div className="flex h-full flex-col">
@@ -124,7 +110,7 @@ export default function SettingsPage() {
                       Automatically notify leads when tasks are blocked
                     </p>
                   </div>
-                  <Switch checked={autoEscalate} onCheckedChange={setAutoEscalate} />
+                  <Switch checked={autoEscalate} onCheckedChange={toggle('autoEscalate')} />
                 </div>
                 
                 {autoEscalate && (
@@ -153,7 +139,7 @@ export default function SettingsPage() {
                       Force team members to explain why a task is blocked
                     </p>
                   </div>
-                  <Switch checked={requireBlockerReason} onCheckedChange={setRequireBlockerReason} />
+                  <Switch checked={requireBlockerReason} onCheckedChange={toggle('requireBlockerReason')} />
                 </div>
               </CardContent>
             </Card>
@@ -176,13 +162,13 @@ export default function SettingsPage() {
                       Require team members to update task progress regularly
                     </p>
                   </div>
-                  <Switch checked={mandatoryUpdates} onCheckedChange={setMandatoryUpdates} />
+                  <Switch checked={mandatoryUpdates} onCheckedChange={toggle('mandatoryUpdates')} />
                 </div>
 
                 {mandatoryUpdates && (
                   <div className="space-y-3">
                     <Label>Update frequency</Label>
-                    <Select value={updateFrequency} onValueChange={setUpdateFrequency}>
+                    <Select value={updateFrequency} onValueChange={toggle('updateFrequency')}>
                       <SelectTrigger className="w-48">
                         <SelectValue />
                       </SelectTrigger>
@@ -203,7 +189,7 @@ export default function SettingsPage() {
                       Compare estimated hours to actual time spent
                     </p>
                   </div>
-                  <Switch checked={trackTimeEstimates} onCheckedChange={setTrackTimeEstimates} />
+                  <Switch checked={trackTimeEstimates} onCheckedChange={toggle('trackTimeEstimates')} />
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -213,7 +199,7 @@ export default function SettingsPage() {
                       Display team and individual velocity on dashboards
                     </p>
                   </div>
-                  <Switch checked={showVelocityMetrics} onCheckedChange={setShowVelocityMetrics} />
+                  <Switch checked={showVelocityMetrics} onCheckedChange={toggle('showVelocityMetrics')} />
                 </div>
               </CardContent>
             </Card>
@@ -289,7 +275,7 @@ export default function SettingsPage() {
                       </p>
                     </div>
                   </div>
-                  <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} />
+                  <Switch checked={emailNotifications} onCheckedChange={toggle('emailNotifications')} />
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-4">
                   <div className="flex items-center gap-3">
@@ -301,7 +287,7 @@ export default function SettingsPage() {
                       <p className="text-sm text-muted-foreground">#synapse-notifications</p>
                     </div>
                   </div>
-                  <Switch checked={slackNotifications} onCheckedChange={setSlackNotifications} />
+                  <Switch checked={slackNotifications} onCheckedChange={toggle('slackNotifications')} />
                 </div>
               </CardContent>
             </Card>
@@ -319,42 +305,42 @@ export default function SettingsPage() {
                     <Label>Task assigned to me</Label>
                     <p className="text-sm text-muted-foreground">When a new task is assigned</p>
                   </div>
-                  <Switch checked={taskAssigned} onCheckedChange={setTaskAssigned} />
+                  <Switch checked={taskAssigned} onCheckedChange={toggle('taskAssigned')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Task due soon</Label>
                     <p className="text-sm text-muted-foreground">24 hours before deadline</p>
                   </div>
-                  <Switch checked={taskDueSoon} onCheckedChange={setTaskDueSoon} />
+                  <Switch checked={taskDueSoon} onCheckedChange={toggle('taskDueSoon')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Task overdue</Label>
                     <p className="text-sm text-muted-foreground">When a task passes its deadline</p>
                   </div>
-                  <Switch checked={taskOverdue} onCheckedChange={setTaskOverdue} />
+                  <Switch checked={taskOverdue} onCheckedChange={toggle('taskOverdue')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Mandatory email on due date</Label>
                     <p className="text-sm text-muted-foreground">Email supervisor + member on due date</p>
                   </div>
-                  <Switch checked={mandatoryEmailOnDueDate} onCheckedChange={setMandatoryEmailOnDueDate} />
+                  <Switch checked={mandatoryEmailOnDueDate} onCheckedChange={toggle('mandatoryEmailOnDueDate')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Daily overdue reminders</Label>
                     <p className="text-sm text-muted-foreground">Daily email until task completed</p>
                   </div>
-                  <Switch checked={dailyOverdueReminders} onCheckedChange={setDailyOverdueReminders} />
+                  <Switch checked={dailyOverdueReminders} onCheckedChange={toggle('dailyOverdueReminders')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Project updates</Label>
                     <p className="text-sm text-muted-foreground">Status changes and milestones</p>
                   </div>
-                  <Switch checked={projectUpdates} onCheckedChange={setProjectUpdates} />
+                  <Switch checked={projectUpdates} onCheckedChange={toggle('projectUpdates')} />
                 </div>
               </CardContent>
             </Card>
@@ -372,14 +358,14 @@ export default function SettingsPage() {
                     <Label>Daily digest</Label>
                     <p className="text-sm text-muted-foreground">Summary at 8am every day</p>
                   </div>
-                  <Switch checked={dailyDigest} onCheckedChange={setDailyDigest} />
+                  <Switch checked={dailyDigest} onCheckedChange={toggle('dailyDigest')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label>Weekly report</Label>
                     <p className="text-sm text-muted-foreground">Comprehensive report every Monday</p>
                   </div>
-                  <Switch checked={weeklyReport} onCheckedChange={setWeeklyReport} />
+                  <Switch checked={weeklyReport} onCheckedChange={toggle('weeklyReport')} />
                 </div>
               </CardContent>
             </Card>
@@ -397,7 +383,7 @@ export default function SettingsPage() {
               <CardContent className="space-y-6">
                 <div className="space-y-3">
                   <Label>Default assignment mode</Label>
-                  <Select value={defaultAssignee} onValueChange={setDefaultAssignee}>
+                  <Select value={defaultAssignee} onValueChange={toggle('defaultAssignee')}>
                     <SelectTrigger className="w-64">
                       <SelectValue />
                     </SelectTrigger>
@@ -417,7 +403,7 @@ export default function SettingsPage() {
                       Warn when assigning to overloaded team members
                     </p>
                   </div>
-                  <Switch checked={workloadBalancing} onCheckedChange={setWorkloadBalancing} />
+                  <Switch checked={workloadBalancing} onCheckedChange={toggle('workloadBalancing')} />
                 </div>
 
                 {workloadBalancing && (
@@ -453,7 +439,7 @@ export default function SettingsPage() {
                       Tasks must be reviewed before marking complete
                     </p>
                   </div>
-                  <Switch checked={requireReviewer} onCheckedChange={setRequireReviewer} />
+                  <Switch checked={requireReviewer} onCheckedChange={toggle('requireReviewer')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -462,7 +448,7 @@ export default function SettingsPage() {
                       Allow all team members to see all projects
                     </p>
                   </div>
-                  <Switch checked={crossFunctionalVisibility} onCheckedChange={setCrossFunctionalVisibility} />
+                  <Switch checked={crossFunctionalVisibility} onCheckedChange={toggle('crossFunctionalVisibility')} />
                 </div>
               </CardContent>
             </Card>
@@ -485,7 +471,7 @@ export default function SettingsPage() {
                       All tasks must have a deadline
                     </p>
                   </div>
-                  <Switch checked={requireDueDate} onCheckedChange={setRequireDueDate} />
+                  <Switch checked={requireDueDate} onCheckedChange={toggle('requireDueDate')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -494,7 +480,7 @@ export default function SettingsPage() {
                       All tasks must be prioritized
                     </p>
                   </div>
-                  <Switch checked={requirePriority} onCheckedChange={setRequirePriority} />
+                  <Switch checked={requirePriority} onCheckedChange={toggle('requirePriority')} />
                 </div>
               </CardContent>
             </Card>
@@ -514,7 +500,7 @@ export default function SettingsPage() {
                       Link tasks that depend on each other
                     </p>
                   </div>
-                  <Switch checked={enableDependencies} onCheckedChange={setEnableDependencies} />
+                  <Switch checked={enableDependencies} onCheckedChange={toggle('enableDependencies')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -523,7 +509,7 @@ export default function SettingsPage() {
                       Break down tasks into smaller pieces
                     </p>
                   </div>
-                  <Switch checked={enableSubtasks} onCheckedChange={setEnableSubtasks} />
+                  <Switch checked={enableSubtasks} onCheckedChange={toggle('enableSubtasks')} />
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
@@ -532,7 +518,7 @@ export default function SettingsPage() {
                       Log time spent on tasks
                     </p>
                   </div>
-                  <Switch checked={enableTimeTracking} onCheckedChange={setEnableTimeTracking} />
+                  <Switch checked={enableTimeTracking} onCheckedChange={toggle('enableTimeTracking')} />
                 </div>
               </CardContent>
             </Card>
@@ -552,7 +538,7 @@ export default function SettingsPage() {
                       Move completed tasks to archive automatically
                     </p>
                   </div>
-                  <Switch checked={autoArchiveCompleted} onCheckedChange={setAutoArchiveCompleted} />
+                  <Switch checked={autoArchiveCompleted} onCheckedChange={toggle('autoArchiveCompleted')} />
                 </div>
 
                 {autoArchiveCompleted && (

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
-import { User, Project, Task, Comment } from '@/lib/types';
+import { User, Project, Task, Comment, AppSettings } from '@/lib/types';
 import { logoutUser, getSession, getLoggedInUser } from '@/lib/auth';
 
 function generateId() {
@@ -236,6 +236,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const updateSettings = useCallback((updates: Partial<AppSettings>) => {
+    setState(s => ({ ...s, settings: { ...s.settings, ...updates } }));
+  }, []);
+
   const contextValue = {
     ...state,
     setCurrentUser,
@@ -258,6 +262,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateProject,
     updateUser,
     addProjectComment,
+    updateSettings,
   };
 
   return (

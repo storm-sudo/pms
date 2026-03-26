@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import { User, Project, Task, Comment } from './types';
+import { User, Project, Task, Comment, AppSettings } from './types';
 import { allUsers, projects as initialProjects, tasks as initialTasks } from './mock-data';
 
 export interface AppState {
@@ -15,6 +15,7 @@ export interface AppState {
   selectedTaskId: string | null;
   selectedProjectId: string | null;
   selectedUserId: string | null;
+  settings: AppSettings;
 }
 
 export interface AppActions {
@@ -42,6 +43,7 @@ export interface AppActions {
   updateProject: (id: string, updates: Partial<Project>) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   addProjectComment: (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+  updateSettings: (settings: Partial<AppSettings>) => void;
 }
 
 export type AppContextType = AppState & AppActions;
@@ -57,6 +59,44 @@ export const initialState: AppState = {
   selectedTaskId: null,
   selectedProjectId: null,
   selectedUserId: null,
+  settings: {
+    // Accountability
+    autoEscalate: true,
+    escalationThreshold: 24,
+    requireBlockerReason: true,
+    mandatoryUpdates: true,
+    updateFrequency: 'daily',
+    trackTimeEstimates: true,
+    showVelocityMetrics: true,
+    
+    // Notifications
+    emailNotifications: true,
+    slackNotifications: true,
+    taskAssigned: true,
+    taskDueSoon: true,
+    taskOverdue: true,
+    mandatoryEmailOnDueDate: true,
+    dailyOverdueReminders: true,
+    projectUpdates: true,
+    dailyDigest: true,
+    weeklyReport: true,
+    
+    // Team
+    defaultAssignee: 'auto',
+    workloadBalancing: true,
+    maxTasksPerPerson: 8,
+    requireReviewer: true,
+    crossFunctionalVisibility: true,
+    
+    // Workflow
+    autoArchiveCompleted: true,
+    archiveAfterDays: 7,
+    requireDueDate: true,
+    requirePriority: true,
+    enableDependencies: true,
+    enableSubtasks: true,
+    enableTimeTracking: true,
+  },
 };
 
 export const AppContext = createContext<AppContextType | null>(null);
