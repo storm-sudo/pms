@@ -65,7 +65,7 @@ export function UserProfilePanel() {
 
   if (!user) return null;
 
-  const userTasks = tasks.filter(t => t.assigneeId === user.id);
+  const userTasks = tasks.filter(t => t.assigneeIds.includes(user.id));
   const activeTasks = userTasks.filter(t => t.status !== 'done');
   const completedTasks = userTasks.filter(t => t.status === 'done');
   const today = new Date().toISOString().split('T')[0];
@@ -87,106 +87,128 @@ export function UserProfilePanel() {
   return (
     <Sheet open={!!selectedUserId} onOpenChange={(open) => !open && setSelectedUserId(null)}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
-        <SheetHeader className="space-y-4 pb-4">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-4">
-              <Avatar className="h-16 w-16">
-                <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                  {getInitials(user.name)}
-                </AvatarFallback>
-              </Avatar>
+        <SheetHeader className="space-y-6 pb-6 border-b">
+          <div className="flex items-center justify-between w-full pt-2">
+            <div className="flex items-center gap-5">
+              <div className="relative">
+                <Avatar className="h-20 w-20 ring-4 ring-background shadow-xl">
+                  <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold">
+                    {getInitials(user.name)}
+                  </AvatarFallback>
+                </Avatar>
+                <div className={cn(
+                  "absolute bottom-1 right-1 h-4 w-4 rounded-full border-2 border-background",
+                  user.workload.activeTasks > 5 ? "bg-red-500" : "bg-emerald-500"
+                )} />
+              </div>
               <div className="flex-1">
                 {isEditing ? (
                   <div className="space-y-2">
-                    <Input value={editedName} onChange={e => setEditedName(e.target.value)} className="h-8 py-1 text-base font-semibold" />
+                    <Input value={editedName} onChange={e => setEditedName(e.target.value)} className="h-9 py-1 text-lg font-bold bg-accent/50" />
                     <div className="flex gap-2 mt-1">
-                      <Input value={editedDepartment} onChange={e => setEditedDepartment(e.target.value)} className="h-6 py-0 px-2 text-xs w-24" placeholder="Dept" />
-                      <Input value={editedRole} onChange={e => setEditedRole(e.target.value)} className="h-6 py-0 px-2 text-xs w-24" placeholder="Role" />
+                      <Input value={editedDepartment} onChange={e => setEditedDepartment(e.target.value)} className="h-7 py-0 px-2 text-xs w-28 bg-accent/50" placeholder="Dept" />
+                      <Input value={editedRole} onChange={e => setEditedRole(e.target.value)} className="h-7 py-0 px-2 text-xs w-28 bg-accent/50" placeholder="Role" />
                     </div>
                   </div>
                 ) : (
                   <>
-                    <SheetTitle className="text-xl">{user.name}</SheetTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className={cn(departmentColors[user.department || 'Leadership'])}>
+                    <SheetTitle className="text-2xl font-black tracking-tight">{user.name}</SheetTitle>
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Badge variant="outline" className={cn('text-[10px] uppercase font-bold tracking-widest px-2 py-0.5', departmentColors[user.department || 'Leadership'])}>
                         {user.department}
                       </Badge>
-                      {user.role === 'admin' && (
-                        <Badge className="bg-amber-500 text-white text-[10px]">Admin</Badge>
-                      )}
+                      <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 bg-blue-100/50 text-blue-700 border-blue-200/50">
+                        {user.role}
+                      </Badge>
                     </div>
                   </>
                 )}
               </div>
             </div>
             {isAdmin && (
-              <Button size="sm" variant="outline" className="ml-2" onClick={() => {
+              <Button size="sm" variant="outline" className="h-9 px-4 font-semibold hover:bg-accent transition-all" onClick={() => {
                 if (isEditing) {
                   updateUser(user.id, { name: editedName, department: editedDepartment as any, role: editedRole as any, email: editedEmail });
                 }
                 setIsEditing(!isEditing);
               }}>
-                {isEditing ? 'Save' : 'Edit'}
+                {isEditing ? 'Save Changes' : 'Edit Profile'}
               </Button>
             )}
           </div>
           
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <Mail className="h-4 w-4" />
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+              <Mail className="h-4 w-4 text-blue-500" />
               {isEditing ? (
-                <Input value={editedEmail} onChange={e => setEditedEmail(e.target.value)} className="h-6 py-0 px-1 text-xs w-48" placeholder="Email" />
+                <Input value={editedEmail} onChange={e => setEditedEmail(e.target.value)} className="h-7 py-0 px-2 text-xs w-48 bg-accent/50" placeholder="Email" />
               ) : (
-                user.email
+                <span className="font-medium">{user.email}</span>
               )}
-            </span>
-            <span className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              Joined {new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-            </span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Calendar className="h-4 w-4 text-blue-500" />
+              <span className="font-medium">Joined {new Date(user.joinedDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
+            </div>
           </div>
         </SheetHeader>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold">{activeTasks.length}</p>
-              <p className="text-xs text-muted-foreground">Active</p>
+        {/* Quick Stats - Rearranged to 2x2 Grid */}
+        <div className="grid grid-cols-2 gap-4 my-8">
+          <Card className="bg-blue-50/30 dark:bg-blue-500/5 border-blue-100 dark:border-blue-500/20 shadow-sm transition-all hover:shadow-md h-[90px] flex flex-col justify-center">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400 tracking-widest">Active Projects</p>
+                <p className="text-3xl font-black mt-1 leading-none">{activeTasks.length}</p>
+              </div>
+              <TrendingUp className="h-8 w-8 text-blue-500/20" />
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold text-emerald-500">{completedTasks.length}</p>
-              <p className="text-xs text-muted-foreground">Completed</p>
+          <Card className="bg-emerald-50/30 dark:bg-emerald-500/5 border-emerald-100 dark:border-emerald-500/20 shadow-sm transition-all hover:shadow-md h-[90px] flex flex-col justify-center">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400 tracking-widest">Completed</p>
+                <p className="text-3xl font-black text-emerald-600 dark:text-emerald-500 mt-1 leading-none">{completedTasks.length}</p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-emerald-500/20" />
             </CardContent>
           </Card>
-          <Card className={overdueTasks.length > 0 ? 'border-destructive/50' : ''}>
-            <CardContent className="p-3 text-center">
-              <p className={cn(
-                'text-2xl font-bold',
-                overdueTasks.length > 0 ? 'text-destructive' : ''
-              )}>
-                {overdueTasks.length}
-              </p>
-              <p className="text-xs text-muted-foreground">Overdue</p>
+          <Card className={cn(
+             "h-[90px] flex flex-col justify-center shadow-sm transition-all hover:shadow-md",
+             overdueTasks.length > 0 ? 'bg-red-50/30 dark:bg-red-500/5 border-red-200 dark:border-red-500/30' : 'bg-slate-50/30 dark:bg-slate-500/5 border-slate-100 dark:border-slate-500/20'
+          )}>
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Overdue</p>
+                <p className={cn(
+                  'text-3xl font-black mt-1 leading-none',
+                  overdueTasks.length > 0 ? 'text-red-500' : ''
+                )}>
+                  {overdueTasks.length}
+                </p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-red-500/20" />
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-3 text-center">
-              <p className="text-2xl font-bold">{user.workload.avgCompletionTime}d</p>
-              <p className="text-xs text-muted-foreground">Avg Time</p>
+          <Card className="bg-purple-50/30 dark:bg-purple-500/5 border-purple-100 dark:border-purple-500/20 shadow-sm transition-all hover:shadow-md h-[90px] flex flex-col justify-center">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase font-bold text-purple-600 dark:text-purple-400 tracking-widest">Avg Speed</p>
+                <p className="text-3xl font-black mt-1 leading-none">{user.workload.avgCompletionTime}d</p>
+              </div>
+              <Clock className="h-8 w-8 text-purple-500/20" />
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="activity" className="space-y-4">
-          <TabsList className="w-full">
-            <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-            <TabsTrigger value="tasks" className="flex-1">Tasks</TabsTrigger>
+        <Tabs defaultValue="activity" className="space-y-6">
+          <TabsList className="w-full bg-accent/50 p-1 h-11 border">
+            <TabsTrigger value="activity" className="flex-1 data-[state=active]:bg-background data-[state=active]:shadow-sm font-bold tracking-tight">Activity</TabsTrigger>
+            <TabsTrigger value="tasks" className="flex-1 data-[state=active]:bg-background data-[state=active]:shadow-sm font-bold tracking-tight">Tasks</TabsTrigger>
             {isAdmin && (
-              <TabsTrigger value="notes" className="flex-1">
-                Leadership Notes
+              <TabsTrigger value="notes" className="flex-1 data-[state=active]:bg-background data-[state=active]:shadow-sm font-bold tracking-tight">
+                Notes
               </TabsTrigger>
             )}
           </TabsList>

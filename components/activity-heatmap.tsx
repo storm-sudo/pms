@@ -93,9 +93,9 @@ export function ActivityHeatmap({ userId, className, compact = false }: Activity
         </div>
       )}
       
-      {/* Month labels */}
+      {/* Month labels - optimized for space */}
       {!compact && (
-        <div className="flex gap-[3px] ml-6 text-[10px] text-muted-foreground">
+        <div className="flex gap-[3px] ml-7 text-[9px] uppercase font-bold tracking-widest text-muted-foreground/60 mb-1">
           {months.map((m, idx) => (
             <div
               key={idx}
@@ -123,7 +123,10 @@ export function ActivityHeatmap({ userId, className, compact = false }: Activity
         )}
         
         <TooltipProvider delayDuration={100}>
-          <div className="flex gap-[3px] overflow-x-auto">
+          <div className={cn(
+            "flex gap-[3px] overflow-x-auto pb-2 scrollbar-hide",
+            "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          )}>
             {weeks.map((week, weekIdx) => (
               <div key={weekIdx} className="flex flex-col gap-[3px]">
                 {[0, 1, 2, 3, 4, 5, 6].map((dayIdx) => {

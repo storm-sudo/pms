@@ -58,9 +58,8 @@ function TeamMemberCard({ userId }: { userId: string }) {
       onClick={() => setSelectedUserId(user.id)}
     >
       <CardContent className="p-0">
-        {/* Header with department color */}
         <div className={cn(
-          'h-2',
+          'h-1.5',
           user.department === 'Mol Bio' ? 'bg-blue-500' :
           user.department === 'AI' ? 'bg-purple-500' :
           user.department === 'Bioinfo' ? 'bg-emerald-500' :
@@ -82,12 +81,12 @@ function TeamMemberCard({ userId }: { userId: string }) {
                   <Shield className="h-3.5 w-3.5 text-amber-500" />
                 )}
               </div>
-              <div className="flex flex-wrap gap-1 mt-1">
-                <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0', departmentColors[user.department])}>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                <Badge variant="outline" className={cn('text-[9px] uppercase tracking-wider font-bold h-4 px-1.5', departmentColors[user.department])}>
                   {user.department}
                 </Badge>
                 {user.status !== 'approved' && (
-                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-700 border-amber-200">
+                   <Badge variant="secondary" className="text-[9px] uppercase tracking-wider font-bold h-4 px-1.5 bg-amber-100/50 text-amber-700 border-amber-200/50">
                     {user.status}
                   </Badge>
                 )}
@@ -101,24 +100,26 @@ function TeamMemberCard({ userId }: { userId: string }) {
             )} title={`Workload: ${workloadLevel}`} />
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-4 mt-4 text-center">
-            <div>
-              <p className="text-lg font-bold">{activeTasks.length}</p>
-              <p className="text-xs text-muted-foreground">Active</p>
+          {/* Stats Section with better alignment */}
+          <div className="flex items-center justify-between mt-6 px-2">
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold tracking-tight">{activeTasks.length}</span>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-0.5">Active</span>
             </div>
-            <div>
-              <p className="text-lg font-bold text-emerald-500">{completedTasks.length}</p>
-              <p className="text-xs text-muted-foreground">Done</p>
+            <div className="h-8 w-px bg-border/50" />
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold tracking-tight text-emerald-500">{completedTasks.length}</span>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-0.5">Done</span>
             </div>
-            <div>
-              <p className={cn(
-                'text-lg font-bold',
+            <div className="h-8 w-px bg-border/50" />
+            <div className="flex flex-col items-center">
+              <span className={cn(
+                'text-xl font-bold tracking-tight',
                 overdueTasks.length > 0 ? 'text-destructive' : ''
               )}>
                 {overdueTasks.length}
-              </p>
-              <p className="text-xs text-muted-foreground">Overdue</p>
+              </span>
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mt-0.5">Overdue</span>
             </div>
           </div>
 
@@ -159,23 +160,23 @@ export default function TeamPage() {
   const bioinfoUsers = filteredUsers.filter(u => u.department === 'Bioinfo');
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="flex items-center justify-between border-b pb-6">
         <div>
-          <h1 className="text-2xl font-bold">Team Directory</h1>
-          <p className="text-muted-foreground">{filteredUsers.length} approved members across departments</p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Team Directory</h1>
+          <p className="text-muted-foreground mt-1">{filteredUsers.length} approved members across specialized departments</p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-xs">
+      <div className="flex flex-col sm:flex-row items-center gap-6 bg-accent/30 p-4 rounded-xl border border-border/50">
+        <div className="relative flex-1 w-full sm:max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search team members..."
+            placeholder="Search team members by name or specialization..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="pl-9 h-11 bg-background/50"
           />
         </div>
         
