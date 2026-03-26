@@ -31,7 +31,7 @@ export default function LoginPage() {
         // Small delay for UX feel
         await new Promise(r => setTimeout(r, 400));
 
-        // 1. Try our mock-data login (which handles the provided adminnt@gmail.com)
+        // 1. Try our mock-data login (which handles the provided shahebaazkazi002nt@gmail.com)
         const success = login(email, password);
         
         if (success) {
@@ -51,6 +51,7 @@ export default function LoginPage() {
                     department: 'Mol Bio',
                     joinedDate: result.user.createdAt,
                     lastActive: new Date().toISOString(),
+                    status: result.user.status || 'pending',
                     workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
                 };
 
@@ -111,7 +112,7 @@ export default function LoginPage() {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="adminnt@gmail.com"
+                                placeholder="shahebaazkazi002nt@gmail.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className={`bg-slate-800/50 border-slate-700 text-slate-50 placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20 h-11 ${!emailValid ? 'border-red-500/50 focus:border-red-500' : ''
@@ -186,7 +187,7 @@ export default function LoginPage() {
                     </div>
 
                     <p className="mt-5 text-center text-xs text-slate-500">
-                        Demo Credentials: adminnt@gmail.com / dmin123
+                        Demo Credentials: shahebaazkazi002nt@gmail.com / dmin123
                     </p>
                 </CardContent>
             </Card>

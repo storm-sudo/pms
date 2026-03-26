@@ -13,7 +13,7 @@ export const admins: User[] = [
   {
     id: 'admin-0',
     name: 'System Administrator',
-    email: 'adminnt@gmail.com',
+    email: 'shahebaazkazi002nt@gmail.com',
     password: 'dmin123',
     role: 'admin',
     department: 'Leadership',

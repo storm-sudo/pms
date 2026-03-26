@@ -75,7 +75,7 @@ export function registerUser(name: string, email: string, password: string): { s
 
     // Notify Admin of new registration
     notificationService.sendEmail(
-        'adminnt@gmail.com',
+        'shahebaazkazi002nt@gmail.com',
         'SYNAPSE: New User Registration',
         `A new user has registered for Synapse and is pending approval.<br><br>
         <strong>Name:</strong> ${newUser.name}<br>
