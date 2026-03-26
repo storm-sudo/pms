@@ -21,7 +21,11 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error('Resend Error:', error);
-      return NextResponse.json({ error }, { status: 400 });
+      let message = error.message;
+      if (message.includes('domain') && message.includes('verified')) {
+        message = 'The "from" domain @nucleovir.com is not verified in Resend. Please verify it or use a test sender.';
+      }
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     return NextResponse.json(data);

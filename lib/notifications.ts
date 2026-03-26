@@ -70,14 +70,15 @@ class NotificationService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send email');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
       }
 
       console.log(`%c[EMAIL SENT] To: ${to} Subject: ${subject}`, 'color: #10b981; font-weight: bold;');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Notification Error:', error);
       // Fallback for development/offline
-      toast.error(`Failed to send email to ${to}`);
+      toast.error(`Email Error: ${error.message}`);
     }
 
     // For demo/transparency, log to localStorage
