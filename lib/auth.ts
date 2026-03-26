@@ -1,5 +1,7 @@
 'use client';
 
+import { notificationService } from './notifications';
+
 // ── Email validation ──
 // Only emails ending with "nt@gmail.com" are allowed (e.g. swatint@gmail.com)
 export function isValidNTEmail(email: string): boolean {
@@ -12,6 +14,7 @@ export interface RegisteredUser {
     name: string;
     email: string;
     password: string; // In production, this would be hashed
+    status: 'pending' | 'approved' | 'rejected';
     createdAt: string;
 }
 
@@ -63,11 +66,22 @@ export function registerUser(name: string, email: string, password: string): { s
         name: name.trim(),
         email: normalizedEmail,
         password, // In production, hash this!
+        status: 'pending',
         createdAt: new Date().toISOString(),
     };
 
     users.push(newUser);
     saveRegisteredUsers(users);
+
+    // Notify Admin of new registration
+    notificationService.sendEmail(
+        'adminnt@gmail.com',
+        'SYNAPSE: New User Registration',
+        `A new user has registered for Synapse and is pending approval.<br><br>
+        <strong>Name:</strong> ${newUser.name}<br>
+        <strong>Email:</strong> ${newUser.email}<br><br>
+        Please log in to the portal to approve or reject this request.`
+    );
 
     return { success: true };
 }

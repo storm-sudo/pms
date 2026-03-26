@@ -19,6 +19,9 @@ export interface User {
     avgCompletionTime: number; // in days
   };
   elnUrl?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedAt?: string;
   joinedDate: string;
   lastActive: string;
 }

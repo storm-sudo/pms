@@ -2,52 +2,66 @@
 
 import { useState, useCallback, useEffect, ReactNode } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
-import { User, Project, Task, Comment, AppSettings } from '@/lib/types';
+import { User, Project, Task, Comment, AppSettings, TaskStatus, Priority } from '@/lib/types';
 import { logoutUser, getSession, getLoggedInUser } from '@/lib/auth';
+import { toast } from '@/components/ui/use-toast';
+import { notificationService } from '@/lib/notifications';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
 }
 
-import { notificationService } from '@/lib/notifications';
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
 
-  // Restore session on mount
+  // Restore session and users on mount
   useEffect(() => {
-    const session = getSession();
-    if (session) {
-      const loggedInUser = getLoggedInUser();
-      if (loggedInUser) {
-        const mappedUser: User = {
-          id: loggedInUser.id,
-          name: loggedInUser.name,
-          email: loggedInUser.email,
-          role: 'member', // Default role for new users
-          department: 'Mol Bio',
-          joinedDate: loggedInUser.createdAt,
-          lastActive: new Date().toISOString(),
-          workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
-        };
+    if (typeof window === 'undefined') return;
 
-        setState(s => {
-          const existingUser = s.users.find(u => u.email.toLowerCase() === loggedInUser.email.toLowerCase());
-          const finalUser = existingUser || mappedUser;
-          const userExists = s.users.some(u => u.id === finalUser.id);
-          const updatedUsers = userExists ? s.users : [...s.users, finalUser];
+    // 1. Get users from localStorage
+    const storageData = localStorage.getItem('synapse-registered-users');
+    const registeredUsers: any[] = storageData ? JSON.parse(storageData) : [];
 
-          return {
-            ...s,
-            isLoggedIn: true,
-            currentUser: finalUser,
-            users: updatedUsers
-          };
-        });
-      } else {
-        setState(s => ({ ...s, isLoggedIn: true }));
+    const mappedUsers: User[] = registeredUsers.map(ru => ({
+      id: ru.id,
+      name: ru.name,
+      email: ru.email,
+      role: 'member',
+      department: 'Mol Bio',
+      status: ru.status || 'pending',
+      joinedDate: ru.createdAt,
+      lastActive: new Date().toISOString(),
+      workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+    }));
+
+    setState(s => {
+      // Merge co-founders with registered users (by email)
+      const coFounders = s.users.filter(u => u.role === 'admin');
+      const allMergedUsers = [...coFounders];
+
+      mappedUsers.forEach(mu => {
+        if (!allMergedUsers.some(u => u.email.toLowerCase() === mu.email.toLowerCase())) {
+          allMergedUsers.push(mu);
+        }
+      });
+
+      // Handle current session
+      const session = getSession();
+      let currentUser = null;
+      let isLoggedIn = false;
+
+      if (session) {
+        currentUser = allMergedUsers.find(u => u.id === session.userId) || null;
+        isLoggedIn = !!currentUser;
       }
-    }
+
+      return {
+        ...s,
+        users: allMergedUsers,
+        currentUser: currentUser as User,
+        isLoggedIn
+      };
+    });
   }, []);
 
   // Initialize theme from system preference or localStorage
@@ -88,6 +102,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const login = useCallback((email: string, password: string) => {
     const user = state.users.find(u => u.email === email && u.password === password);
     if (user) {
+      if (user.status !== 'approved') {
+        toast({
+          title: 'Account Pending Approval',
+          description: 'Your account has not been approved by an administrator yet.',
+          variant: 'destructive'
+        });
+        return false;
+      }
       if (typeof window !== 'undefined') {
         localStorage.setItem('synapse-session', JSON.stringify({ userId: user.id, email: user.email }));
       }
@@ -276,6 +298,57 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, settings: { ...s.settings, ...updates } }));
   }, []);
 
+  const approveUser = useCallback((userId: string) => {
+    setState(s => {
+      const user = s.users.find(u => u.id === userId);
+      if (user) {
+        const updatedUser: User = { 
+          ...user, 
+          status: 'approved', 
+          approvedBy: s.currentUser.id, 
+          approvedAt: new Date().toISOString() 
+        };
+        
+        // Notify user via email
+        notificationService.sendEmail(
+          user.email,
+          'SYNAPSE: Account Approved',
+          `Dear ${user.name.split(' ')[0]}, your account has been approved. You can now log in to the portal.`
+        );
+
+        toast({ title: 'User Approved', description: `${user.name} now has access.` });
+
+        return {
+          ...s,
+          users: s.users.map(u => u.id === userId ? updatedUser : u)
+        };
+      }
+      return s;
+    });
+  }, []);
+
+  const rejectUser = useCallback((userId: string) => {
+    setState(s => {
+      const user = s.users.find(u => u.id === userId);
+      if (user) {
+        // Notify user via email
+        notificationService.sendEmail(
+          user.email,
+          'SYNAPSE: Account Registration Update',
+          `Dear ${user.name.split(' ')[0]}, your registration request could not be approved at this time.`
+        );
+
+        toast({ title: 'User Rejected', description: `${user.name} has been removed.` });
+
+        return {
+          ...s,
+          users: s.users.filter(u => u.id !== userId)
+        };
+      }
+      return s;
+    });
+  }, []);
+
   const contextValue = {
     ...state,
     setCurrentUser,
@@ -299,6 +372,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateUser,
     addProjectComment,
     updateSettings,
+    approveUser,
+    rejectUser,
   };
 
   return (

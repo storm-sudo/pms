@@ -43,7 +43,9 @@ export interface AppActions {
   updateProject: (id: string, updates: Partial<Project>) => void;
   updateUser: (id: string, updates: Partial<User>) => void;
   addProjectComment: (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
-  updateSettings: (settings: Partial<AppSettings>) => void;
+  updateSettings: (updates: Partial<AppSettings>) => void;
+  approveUser: (userId: string) => void;
+  rejectUser: (userId: string) => void;
 }
 
 export type AppContextType = AppState & AppActions;
