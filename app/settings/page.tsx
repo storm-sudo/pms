@@ -26,8 +26,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   Calendar,
-  BarChart3
+  BarChart3,
+  History,
+  Search
 } from "lucide-react"
+import { useEffect } from "react"
 
 export default function SettingsPage() {
   const { currentUser, setTheme, theme, settings, updateSettings } = useApp()
@@ -54,6 +57,15 @@ export default function SettingsPage() {
 
   // Helper for booleans/strings
   const toggle = (key: keyof typeof settings) => (val: any) => updateSettings({ [key]: val })
+
+  const [emailLogs, setEmailLogs] = useState<any[]>([])
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const logs = JSON.parse(localStorage.getItem('email_logs') || '[]')
+      setEmailLogs([...logs].reverse())
+    }
+  }, [])
 
   return (
     <div className="flex h-full flex-col">
@@ -87,6 +99,10 @@ export default function SettingsPage() {
             <TabsTrigger value="appearance" className="gap-2">
               <Palette className="h-4 w-4" />
               Appearance
+            </TabsTrigger>
+            <TabsTrigger value="logs" className="gap-2">
+              <History className="h-4 w-4" />
+              Delivery Log
             </TabsTrigger>
           </TabsList>
 
@@ -636,6 +652,66 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Switch defaultChecked />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Delivery Log */}
+          <TabsContent value="logs" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>Communication History</CardTitle>
+                    <CardDescription>
+                      Review all emails and notifications sent by Synapse
+                    </CardDescription>
+                  </div>
+                  <Badge variant="outline" className="h-6">Last 50 messages</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="relative mb-4">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by recipient or subject..."
+                    className="pl-9"
+                  />
+                </div>
+                <div className="rounded-md border">
+                  <div className="max-h-[500px] overflow-auto">
+                    <table className="w-full text-sm">
+                      <thead className="sticky top-0 bg-secondary/50 backdrop-blur-sm border-b">
+                        <tr>
+                          <th className="px-4 py-3 text-left font-medium">To</th>
+                          <th className="px-4 py-3 text-left font-medium">Subject</th>
+                          <th className="px-4 py-3 text-left font-medium">Sent At</th>
+                          <th className="px-4 py-3 text-left font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {emailLogs.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground italic">
+                              No notifications sent yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          emailLogs.map((log, idx) => (
+                            <tr key={idx} className="border-b transition-colors hover:bg-muted/30">
+                              <td className="px-4 py-3 font-medium">{log.to}</td>
+                              <td className="px-4 py-3 text-muted-foreground">{log.subject}</td>
+                              <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                                {new Date(log.sentAt).toLocaleString()}
+                              </td>
+                              <td className="px-4 py-3 text-emerald-500 font-medium">Delivered</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </CardContent>
             </Card>
