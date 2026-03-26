@@ -35,10 +35,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }));
 
     setState(s => {
-      // Merge co-founders with registered users (by email)
-      const coFounders = s.users.filter(u => u.role === 'admin');
-      const allMergedUsers = [...coFounders];
+      // Start with all initial users from mock-data/initialState
+      const allMergedUsers = [...s.users];
 
+      // Add any additional users from localStorage that aren't already present
       mappedUsers.forEach(mu => {
         if (!allMergedUsers.some(u => u.email.toLowerCase() === mu.email.toLowerCase())) {
           allMergedUsers.push(mu);
