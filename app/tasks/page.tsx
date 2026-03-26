@@ -9,10 +9,12 @@ import {
   Calendar,
   Filter,
   SortAsc,
+  User,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -32,9 +34,12 @@ import { ActivityHeatmap } from '@/components/activity-heatmap';
 
 function TaskCard({ task }: { task: Task }) {
   const project = useProject(task.projectId);
-  const { setSelectedTaskId, updateTask } = useApp();
+  const { setSelectedTaskId, updateTask, users } = useApp();
   const currentUser = useCurrentUser();
   const { toast } = useToast();
+  
+  const assignees = users.filter(u => task.assigneeIds.includes(u.id));
+  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
   const today = new Date().toISOString().split('T')[0];
   const isOverdue = task.dueDate && task.dueDate < today && task.status !== 'done';
@@ -98,34 +103,51 @@ function TaskCard({ task }: { task: Task }) {
           </p>
         )}
 
-        <div className="flex items-center gap-4 mt-3 text-sm text-muted-foreground">
-          {task.dueDate && (
-            <span className={cn(
-              'flex items-center gap-1',
-              isOverdue && 'text-destructive font-medium'
-            )}>
-              <Calendar className="h-3.5 w-3.5" />
-              {new Date(task.dueDate).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric'
-              })}
-              {isOverdue && ' (Overdue)'}
-            </span>
-          )}
+        <div className="flex items-center justify-between gap-4 mt-3">
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            {task.dueDate && (
+              <span className={cn(
+                'flex items-center gap-1',
+                isOverdue && 'text-destructive font-medium'
+              )}>
+                <Calendar className="h-3.5 w-3.5" />
+                {new Date(task.dueDate).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric'
+                })}
+                {isOverdue && ' (Overdue)'}
+              </span>
+            )}
 
-          {task.subtasks.length > 0 && (
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length} subtasks
-            </span>
-          )}
+            {task.subtasks.length > 0 && (
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {task.subtasks.filter(s => s.completed).length}/{task.subtasks.length}
+              </span>
+            )}
 
-          {task.status === 'blocked' && (
-            <span className="flex items-center gap-1 text-destructive">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              Blocked
-            </span>
-          )}
+            {task.status === 'blocked' && (
+              <span className="flex items-center gap-1 text-destructive">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Blocked
+              </span>
+            )}
+          </div>
+
+          <div className="flex -space-x-2">
+            {assignees.map((assignee) => (
+              <Avatar key={assignee.id} className="h-6 w-6 border-2 border-background">
+                <AvatarFallback className="text-[8px] bg-secondary">
+                  {getInitials(assignee.name)}
+                </AvatarFallback>
+              </Avatar>
+            ))}
+            {assignees.length === 0 && (
+              <div className="h-6 w-6 rounded-full border-2 border-dashed border-muted-foreground/30 flex items-center justify-center">
+                <User className="h-3 w-3 text-muted-foreground/50" />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

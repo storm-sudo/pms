@@ -12,8 +12,8 @@ import { Task } from '@/lib/types';
 import Link from 'next/link';
 
 function TaskRow({ task, onAssign }: { task: Task; onAssign: () => void }) {
-  const assignee = useUser(task.assigneeId);
-  const { setSelectedTaskId } = useApp();
+  const { setSelectedTaskId, users } = useApp();
+  const assignees = users.filter(u => task.assigneeIds.includes(u.id));
   
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
@@ -39,26 +39,28 @@ function TaskRow({ task, onAssign }: { task: Task; onAssign: () => void }) {
           )}
         </div>
       </div>
-      {assignee ? (
-        <Avatar className="h-7 w-7">
-          <AvatarFallback className="text-[10px] bg-secondary">
-            {getInitials(assignee.name)}
-          </AvatarFallback>
-        </Avatar>
-      ) : (
-        <Button 
-          size="sm" 
-          variant="outline" 
-          className="h-7 text-xs"
-          onClick={(e) => {
-            e.stopPropagation();
-            onAssign();
-          }}
-        >
-          <UserPlus className="h-3 w-3 mr-1" />
-          Assign
-        </Button>
-      )}
+      <div className="flex -space-x-2 shrink-0">
+        {assignees.map((assignee) => (
+          <Avatar key={assignee.id} className="h-7 w-7 border-2 border-background">
+            <AvatarFallback className="text-[10px] bg-secondary">
+              {getInitials(assignee.name)}
+            </AvatarFallback>
+          </Avatar>
+        ))}
+        {assignees.length === 0 && (
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="h-7 text-xs px-2"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAssign();
+            }}
+          >
+            <UserPlus className="h-3 w-3" />
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

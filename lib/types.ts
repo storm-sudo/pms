@@ -27,7 +27,7 @@ export interface Subtask {
   id: string;
   title: string;
   completed: boolean;
-  assigneeId?: string;
+  assigneeIds: string[];
   dueDate?: string;
   completedDate?: string;
 }
@@ -45,7 +45,7 @@ export interface Task {
   title: string;
   description?: string;
   projectId: string;
-  assigneeId?: string;
+  assigneeIds: string[];
   priority: Priority;
   status: TaskStatus;
   dueDate?: string;
@@ -119,7 +119,7 @@ export interface Project {
   startDate?: string;
   leadId?: string;
   memberIds: string[];
-  elnLinks: { userId: string; url: string }[];
+  elnLinks: { userId: string; urls: string[] }[];
   comments: Comment[];
   milestones: {
     id: string;

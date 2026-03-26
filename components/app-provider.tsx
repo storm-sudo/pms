@@ -9,6 +9,8 @@ function generateId() {
   return Math.random().toString(36).substring(2, 9);
 }
 
+import { notificationService } from '@/lib/notifications';
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
 
@@ -60,6 +62,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
       document.documentElement.classList.toggle('dark', prefersDark);
     }
   }, []);
+
+  // Report Scheduler
+  useEffect(() => {
+    const interval = setInterval(() => {
+      notificationService.checkAndSendReports(state.tasks, state.projects, state.users);
+    }, 60000); // Check every minute
+    
+    return () => clearInterval(interval);
+  }, [state.tasks, state.projects, state.users]);
 
   const setCurrentUser = useCallback((user: User) => {
     setState(s => ({ ...s, currentUser: user }));
@@ -127,15 +138,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatedAt: now,
     };
     setState(s => ({ ...s, tasks: [...s.tasks, newTask] }));
-  }, []);
+
+    // Notify new assignees
+    if (newTask.assigneeIds.length > 0) {
+      const project = state.projects.find(p => p.id === newTask.projectId);
+      const assignees = state.users.filter(u => newTask.assigneeIds.includes(u.id));
+      if (project) {
+        notificationService.notifyTaskAssignment(newTask, project, assignees, state.currentUser);
+      }
+    }
+  }, [state.projects, state.users, state.currentUser]);
 
   const updateTask = useCallback((id: string, updates: Partial<Task>) => {
-    setState(s => ({
-      ...s,
-      tasks: s.tasks.map(t =>
-        t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
-      ),
-    }));
+    setState(s => {
+      const oldTask = s.tasks.find(t => t.id === id);
+      const newTask = oldTask ? { ...oldTask, ...updates, updatedAt: new Date().toISOString() } : null;
+      
+      if (newTask && updates.assigneeIds) {
+        // Find newly added assignees
+        const newAssigneeIds = updates.assigneeIds.filter(id => !oldTask?.assigneeIds.includes(id));
+        if (newAssigneeIds.length > 0) {
+          const project = s.projects.find(p => p.id === newTask.projectId);
+          const assignees = s.users.filter(u => newAssigneeIds.includes(u.id));
+          if (project) {
+            notificationService.notifyTaskAssignment(newTask, project, assignees, s.currentUser);
+          }
+        }
+      }
+
+      return {
+        ...s,
+        tasks: s.tasks.map(t => t.id === id ? newTask! : t),
+      };
+    });
   }, []);
 
   const deleteTask = useCallback((id: string) => {
@@ -172,6 +207,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       subtasks: [],
       comments: [],
       tags: [],
+      assigneeIds: [],
       order: maxOrder + idx + 1,
       createdAt: now,
       updatedAt: now,

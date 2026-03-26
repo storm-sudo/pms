@@ -59,7 +59,7 @@ export function TaskDetailPanel() {
 
   if (!task) return null;
 
-  const assignee = users.find(u => u.id === task.assigneeId);
+  const assignees = users.filter(u => task.assigneeIds.includes(u.id));
 
   const handleStatusChange = (status: TaskStatus) => {
     if (status === 'done') {
@@ -116,8 +116,17 @@ export function TaskDetailPanel() {
     updateTask(task.id, { priority });
   };
 
-  const handleAssigneeChange = (assigneeId: string) => {
-    updateTask(task.id, { assigneeId: assigneeId === 'unassigned' ? undefined : assigneeId });
+  const toggleAssignee = (userId: string) => {
+    if (userId === 'unassigned') {
+      updateTask(task.id, { assigneeIds: [] });
+      return;
+    }
+    
+    const newIds = task.assigneeIds.includes(userId)
+      ? task.assigneeIds.filter(id => id !== userId)
+      : [...task.assigneeIds, userId];
+    
+    updateTask(task.id, { assigneeIds: newIds });
   };
 
   const handleAddSubtask = () => {
@@ -126,6 +135,7 @@ export function TaskDetailPanel() {
       id: `s${Math.random().toString(36).substring(2, 9)}`,
       title: newSubtask.trim(),
       completed: false,
+      assigneeIds: [],
     };
     updateTask(task.id, { subtasks: [...task.subtasks, subtask] });
     setNewSubtask('');
@@ -139,6 +149,7 @@ export function TaskDetailPanel() {
       id: `s${Math.random().toString(36).substring(2, 9)}`,
       title: title.trim(),
       completed: false,
+      assigneeIds: [],
     }));
     
     updateTask(task.id, { subtasks: [...task.subtasks, ...newSubtasks] });
@@ -148,7 +159,7 @@ export function TaskDetailPanel() {
 
   const handleToggleSubtask = (subtaskId: string) => {
     const isLead = project?.leadId === currentUser.id;
-    const isAssignee = task.assigneeId === currentUser.id;
+    const isAssignee = task.assigneeIds.includes(currentUser.id);
     const isAdmin = currentUser.role === 'admin';
 
     const subtask = task.subtasks.find(s => s.id === subtaskId);
@@ -156,7 +167,7 @@ export function TaskDetailPanel() {
       if (!isAdmin && !isLead && !isAssignee) {
         toast({
           title: "Permission Denied",
-          description: "Only supervisors (Assignee/Project Lead) can close subtasks.",
+          description: "Only supervisors (Assignees/Project Lead) can close subtasks.",
           variant: "destructive",
         });
         return;
@@ -230,33 +241,41 @@ export function TaskDetailPanel() {
             </Select>
           </div>
 
-          {/* Assignee */}
-          <div className="space-y-2">
+          {/* Assignees */}
+          <div className="space-y-3">
             <label className="text-sm font-medium flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
-              Assignee
+              Assignees
             </label>
-            <Select value={task.assigneeId || 'unassigned'} onValueChange={handleAssigneeChange}>
+            
+            <div className="flex flex-wrap gap-2 mb-2">
+              {assignees.map(user => (
+                <Badge key={user.id} variant="secondary" className="pl-1 pr-1 py-1 flex items-center gap-1.5">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[8px]">
+                      {getInitials(user.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs">{user.name}</span>
+                  <button 
+                    onClick={() => toggleAssignee(user.id)}
+                    className="ml-0.5 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {assignees.length === 0 && (
+                <span className="text-sm text-muted-foreground italic">No one assigned</span>
+              )}
+            </div>
+
+            <Select onValueChange={toggleAssignee}>
               <SelectTrigger>
-                <SelectValue>
-                  {assignee ? (
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="text-[10px]">
-                          {getInitials(assignee.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{assignee.name}</span>
-                      <span className="text-muted-foreground">({assignee.department})</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">Unassigned</span>
-                  )}
-                </SelectValue>
+                <SelectValue placeholder="Add assignee..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unassigned">Unassigned</SelectItem>
-                {users.map(user => (
+                {users.filter(u => !task.assigneeIds.includes(u.id)).map(user => (
                   <SelectItem key={user.id} value={user.id}>
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">

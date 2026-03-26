@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { X, MessageSquare, Link2, Send } from 'lucide-react';
+import { X, MessageSquare, Link2, Send, Plus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,7 @@ import { departmentColors } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 
 export function ProjectNotesPanel() {
-  const { selectedProjectId, setSelectedProjectId, addProjectComment } = useApp();
+  const { selectedProjectId, setSelectedProjectId, addProjectComment, updateProject } = useApp();
   const project = useProject(selectedProjectId || undefined);
   const users = useUsers();
   const currentUser = useCurrentUser();
@@ -136,32 +137,53 @@ export function ProjectNotesPanel() {
                 <p className="text-sm text-muted-foreground">No ELN links added yet</p>
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {project.elnLinks.map((link) => {
                   const user = users.find(u => u.id === link.userId);
                   if (!user) return null;
                   return (
                     <div 
                       key={link.userId}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                      className="p-3 rounded-lg bg-muted/50 space-y-2"
                     >
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="text-xs">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <Avatar className="h-8 w-8">
+                          <AvatarFallback className="text-xs">
+                            {getInitials(user.name)}
+                          </AvatarFallback>
+                        </Avatar>
                         <p className="font-medium text-sm">{user.name}</p>
-                        <a 
-                          href={link.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-primary hover:underline truncate block"
-                        >
-                          {link.url}
-                        </a>
                       </div>
-                      <Link2 className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="space-y-1 pl-11">
+                        {link.urls.map((url, idx) => (
+                          <div key={idx} className="flex items-center justify-between group">
+                            <a 
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-primary hover:underline truncate flex-1 flex items-center gap-1"
+                            >
+                              <Link2 className="h-3 w-3 shrink-0" />
+                              {url}
+                            </a>
+                            {(currentUser.role === 'admin' || currentUser.id === link.userId) && (
+                              <button 
+                                onClick={() => {
+                                  const updatedLinks = project.elnLinks.map(l => 
+                                    l.userId === link.userId 
+                                      ? { ...l, urls: l.urls.filter((_, i) => i !== idx) }
+                                      : l
+                                  ).filter(l => l.urls.length > 0);
+                                  updateProject(project.id, { elnLinks: updatedLinks });
+                                }}
+                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -170,12 +192,54 @@ export function ProjectNotesPanel() {
 
             <Separator />
 
+            {/* Add/Manage ELN Links */}
+            <div className="space-y-4">
+              <p className="text-sm font-medium">Manage My ELN Links</p>
+              <div className="flex gap-2">
+                <Input 
+                  id="new-eln-url"
+                  placeholder="https://..."
+                  className="flex-1 h-9 text-xs"
+                />
+                <Button 
+                  size="sm" 
+                  className="h-9"
+                  onClick={() => {
+                    const input = document.getElementById('new-eln-url') as HTMLInputElement;
+                    const url = input.value.trim();
+                    if (!url) return;
+                    
+                    const existingLink = project.elnLinks.find(l => l.userId === currentUser.id);
+                    let updatedLinks;
+                    
+                    if (existingLink) {
+                      updatedLinks = project.elnLinks.map(l => 
+                        l.userId === currentUser.id 
+                          ? { ...l, urls: [...l.urls, url] }
+                          : l
+                      );
+                    } else {
+                      updatedLinks = [...project.elnLinks, { userId: currentUser.id, urls: [url] }];
+                    }
+                    
+                    updateProject(project.id, { elnLinks: updatedLinks });
+                    input.value = '';
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Link
+                </Button>
+              </div>
+            </div>
+
+            <Separator />
+
             <div>
               <p className="text-sm font-medium mb-3">Project Members</p>
               <div className="space-y-2">
                 {memberUsers.map((user) => {
                   if (!user) return null;
-                  const hasEln = project.elnLinks.some(l => l.userId === user.id);
+                  const userLinks = project.elnLinks.find(l => l.userId === user.id);
                   return (
                     <div 
                       key={user.id}
@@ -190,9 +254,9 @@ export function ProjectNotesPanel() {
                         <p className="text-sm font-medium">{user.name}</p>
                         <p className="text-xs text-muted-foreground">{user.department}</p>
                       </div>
-                      {hasEln && (
-                        <Badge variant="secondary" className="text-xs">
-                          ELN Linked
+                      {userLinks && userLinks.urls.length > 0 && (
+                        <Badge variant="secondary" className="text-[10px]">
+                          {userLinks.urls.length} Link{userLinks.urls.length > 1 ? 's' : ''}
                         </Badge>
                       )}
                     </div>

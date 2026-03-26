@@ -121,13 +121,17 @@ export function useIsAdmin() {
 }
 
 export function useProjects() {
-  const { projects } = useApp();
-  return projects;
+  const { projects, currentUser } = useApp();
+  if (currentUser.role === 'admin') return projects;
+  return projects.filter(p => p.memberIds.includes(currentUser.id) || p.leadId === currentUser.id);
 }
 
 export function useTasks() {
-  const { tasks } = useApp();
-  return tasks;
+  const { tasks, currentUser } = useApp();
+  if (currentUser.role === 'admin') return tasks;
+  
+  // Members only see tasks in projects they belong to OR tasks assigned to them
+  return tasks.filter(t => t.assigneeIds.includes(currentUser.id));
 }
 
 export function useTasksByProject(projectId: string) {
@@ -137,7 +141,7 @@ export function useTasksByProject(projectId: string) {
 
 export function useMyTasks() {
   const { tasks, currentUser } = useApp();
-  return tasks.filter(t => t.assigneeId === currentUser.id);
+  return tasks.filter(t => t.assigneeIds.includes(currentUser.id));
 }
 
 export function useUser(userId: string | undefined) {
@@ -177,12 +181,12 @@ export function useDashboardStats() {
     t.priority === 'critical' && t.status !== 'done'
   );
 
-  const unassignedTasks = tasks.filter(t => !t.assigneeId && t.status !== 'done');
+  const unassignedTasks = tasks.filter(t => t.assigneeIds.length === 0 && t.status !== 'done');
 
   const atRiskProjects = projects.filter(p => p.status === 'at-risk');
 
   const teamWorkload = users.filter(u => u.role === 'member').map(user => {
-    const userTasks = tasks.filter(t => t.assigneeId === user.id && t.status !== 'done');
+    const userTasks = tasks.filter(t => t.assigneeIds.includes(user.id) && t.status !== 'done');
     const lateTasks = userTasks.filter(t => t.dueDate && t.dueDate < today).length;
     const load = userTasks.length > 8 ? 'overloaded' :
       userTasks.length > 5 ? 'heavy' :

@@ -59,6 +59,8 @@ const adminNavigation = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+import Image from 'next/image';
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -89,6 +91,7 @@ export function Sidebar() {
       subtasks: [],
       comments: [],
       tags: [],
+      assigneeIds: [],
       order: tasks.filter(t => t.projectId === projectId).length,
     });
     setQuickAddOpen(false);
@@ -138,14 +141,21 @@ export function Sidebar() {
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-border bg-sidebar glass flex flex-col">
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 border-b border-sidebar-border px-4">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-          <Dna className="h-5 w-5 text-primary-foreground" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg overflow-hidden bg-white/10">
+          <Image 
+            src="/logo.jpg" 
+            alt="NucleoVir Logo" 
+            width={40} 
+            height={40} 
+            className="object-cover"
+          />
         </div>
         <div>
-          <h1 className="font-semibold text-sidebar-foreground">Synapse</h1>
-          <p className="text-xs text-muted-foreground">NucleoVir Therapeutics</p>
+          <h1 className="font-semibold text-sidebar-foreground tracking-tight leading-none text-lg">SYNAPSE</h1>
+          <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">NucleoVir</p>
         </div>
       </div>
+
 
       {/* Quick Actions */}
       <div className="p-3 border-b border-sidebar-border">

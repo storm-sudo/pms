@@ -9,9 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dna, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import Image from 'next/image';
 
 export default function LoginPage() {
     const { login, setLoggedIn, setCurrentUser, users } = useApp();
@@ -80,12 +81,20 @@ export default function LoginPage() {
 
             <Card className="w-full max-w-md border-slate-800 bg-slate-900/50 backdrop-blur-xl relative z-10 shadow-2xl shadow-blue-500/5">
                 <CardHeader className="text-center space-y-2">
-                    <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-lg shadow-blue-500/25">
-                        <Dna className="h-7 w-7 text-white" />
+                    <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl bg-white/10 shadow-lg shadow-blue-500/10 overflow-hidden ring-1 ring-white/20">
+                        <Image 
+                            src="/logo.jpg" 
+                            alt="NucleoVir Logo" 
+                            width={80} 
+                            height={80} 
+                            className="object-cover"
+                        />
                     </div>
-                    <CardTitle className="text-2xl font-bold tracking-tight text-slate-50">Welcome to Synapse</CardTitle>
-                    <CardDescription className="text-slate-400">
-                        Sign in to your account to continue
+                    <CardTitle className="text-3xl font-extrabold tracking-tight text-slate-50">
+                        SYNAPSE
+                    </CardTitle>
+                    <CardDescription className="text-slate-400 font-medium tracking-widest uppercase text-xs">
+                        NucleoVir Therapeutics
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="pt-2">
