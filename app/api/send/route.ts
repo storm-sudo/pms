@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const { to, subject, html } = await req.json();
 
     const { data, error } = await resend.emails.send({
-      from: 'Synapse <onboarding@resend.dev>',
+      from: 'Synapse <Synapse@nucleovir.com>',
       to,
       subject,
       html,
