@@ -74,6 +74,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, isLoggedIn: false }));
   }, []);
 
+  const login = useCallback((email: string, password: string) => {
+    const user = state.users.find(u => u.email === email && u.password === password);
+    if (user) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('synapse-session', JSON.stringify({ userId: user.id, email: user.email }));
+      }
+      setState(s => ({ ...s, currentUser: user, isLoggedIn: true }));
+      return true;
+    }
+    return false;
+  }, [state.users]);
+
   const setTheme = useCallback((theme: 'light' | 'dark') => {
     setState(s => ({ ...s, theme }));
     localStorage.setItem('synapse-theme', theme);
@@ -229,6 +241,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setCurrentUser,
     setLoggedIn,
     logout,
+    login,
     setTheme,
     toggleTheme,
     setSidebarCollapsed,

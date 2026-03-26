@@ -21,6 +21,7 @@ export interface AppActions {
   setCurrentUser: (user: User) => void;
   setLoggedIn: (loggedIn: boolean) => void;
   logout: () => void;
+  login: (email: string, password: string) => boolean;
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;

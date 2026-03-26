@@ -11,9 +11,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dna, Eye, EyeOff, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function LoginPage() {
-    const { setLoggedIn, setCurrentUser, users } = useApp();
+    const { login, setLoggedIn, setCurrentUser, users } = useApp();
     const router = useRouter();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -29,27 +30,37 @@ export default function LoginPage() {
         // Small delay for UX feel
         await new Promise(r => setTimeout(r, 400));
 
-        const result = loginUser(email, password);
-
-        if (result.success && result.user) {
-            const existingUser = users.find(u => u.email.toLowerCase() === result.user!.email.toLowerCase());
-
-            const mappedUser: User = existingUser || {
-                id: result.user.id,
-                name: result.user.name,
-                email: result.user.email,
-                role: 'member', // Default role
-                department: 'Mol Bio',
-                joinedDate: result.user.createdAt,
-                lastActive: new Date().toISOString(),
-                workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
-            };
-
-            setCurrentUser(mappedUser);
-            setLoggedIn(true);
+        // 1. Try our mock-data login (which handles the provided adminnt@gmail.com)
+        const success = login(email, password);
+        
+        if (success) {
+            toast.success('Logged in successfully');
             router.push('/');
         } else {
-            setError(result.error || 'Login failed');
+            // 2. Fallback to lib/auth.ts (localStorage) login if mock-data fails
+            const result = loginUser(email, password);
+            if (result.success && result.user) {
+                const existingUser = users.find(u => u.email.toLowerCase() === result.user!.email.toLowerCase());
+
+                const mappedUser: User = existingUser || {
+                    id: result.user.id,
+                    name: result.user.name,
+                    email: result.user.email,
+                    role: 'member', // Default role for manual registrations
+                    department: 'Mol Bio',
+                    joinedDate: result.user.createdAt,
+                    lastActive: new Date().toISOString(),
+                    workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+                };
+
+                setCurrentUser(mappedUser);
+                setLoggedIn(true);
+                toast.success('Logged in successfully');
+                router.push('/');
+            } else {
+                setError(result.error || 'Invalid email or password');
+                toast.error('Login failed');
+            }
         }
 
         setLoading(false);
@@ -91,7 +102,7 @@ export default function LoginPage() {
                             <Input
                                 id="email"
                                 type="email"
-                                placeholder="yourname-nt@gmail.com"
+                                placeholder="adminnt@gmail.com"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
                                 className={`bg-slate-800/50 border-slate-700 text-slate-50 placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20 h-11 ${!emailValid ? 'border-red-500/50 focus:border-red-500' : ''
@@ -166,7 +177,7 @@ export default function LoginPage() {
                     </div>
 
                     <p className="mt-5 text-center text-xs text-slate-500">
-                        Access restricted to authorized NucleoVir team members
+                        Demo Credentials: adminnt@gmail.com / dmin123
                     </p>
                 </CardContent>
             </Card>

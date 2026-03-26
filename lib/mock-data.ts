@@ -16,6 +16,18 @@ const daysFromNow = (days: number) => {
 // Admin co-founders
 export const admins: User[] = [
   {
+    id: 'admin-0',
+    name: 'System Administrator',
+    email: 'adminnt@gmail.com',
+    password: 'dmin123',
+    role: 'admin',
+    department: 'Leadership',
+    avatar: '',
+    workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 },
+    joinedDate: '2024-01-01',
+    lastActive: daysAgo(0),
+  },
+  {
     id: 'u1',
     name: 'Ayush Ranawade',
     email: 'swati@nucleovir.com',
