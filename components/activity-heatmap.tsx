@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { generateActivityData } from '@/lib/mock-data';
+import { useApp } from '@/lib/store';
 import { cn } from '@/lib/utils';
 import {
   Tooltip,
@@ -17,7 +17,45 @@ interface ActivityHeatmapProps {
 }
 
 export function ActivityHeatmap({ userId, className, compact = false }: ActivityHeatmapProps) {
-  const activity = useMemo(() => generateActivityData(userId), [userId]);
+  const { tasks } = useApp();
+
+  const activity = useMemo(() => {
+    // 1. Initialize 365 days of empty activity
+    const entries: { [date: string]: number } = {};
+    const today = new Date();
+    
+    for (let i = 0; i < 365; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        entries[d.toISOString().split('T')[0]] = 0;
+    }
+
+    // 2. Count activity for this user
+    tasks.forEach(task => {
+        // Count completions
+        if (task.status === 'done' && task.assigneeIds.includes(userId) && task.completedDate) {
+            const date = task.completedDate;
+            if (entries[date] !== undefined) {
+                entries[date]++;
+            }
+        }
+
+        // Count logs (Work Discovery)
+        task.logs?.forEach(log => {
+            if (log.userId === userId) {
+                const date = log.createdAt.split('T')[0];
+                if (entries[date] !== undefined) {
+                    entries[date]++;
+                }
+            }
+        });
+    });
+
+    // 3. Convert to array and sort by date
+    return Object.entries(entries)
+        .map(([date, count]) => ({ date, count }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+  }, [tasks, userId]);
   
   // Group by weeks
   const weeks = useMemo(() => {
