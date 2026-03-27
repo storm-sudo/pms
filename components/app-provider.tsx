@@ -59,8 +59,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const taskChannel = supabase.channel('tasks')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
         setState(s => {
-          if (payload.eventType === 'INSERT') return { ...s, tasks: [...s.tasks, payload.new as Task] };
-          if (payload.eventType === 'UPDATE') return { ...s, tasks: s.tasks.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t) };
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const t = payload.new as any;
+            const mappedTask: Task = {
+              ...t,
+              projectId: t.project_id,
+              assigneeIds: t.assignee_ids || [],
+              dueDate: t.due_date,
+              startDate: t.start_date,
+              completedDate: t.completed_date,
+              subtasks: t.subtasks || [],
+              comments: t.comments || [],
+              logs: t.logs || [],
+              reviewerId: t.reviewer_id,
+              approvedBy: t.approved_by,
+              createdAt: t.created_at,
+              updatedAt: t.updated_at
+            };
+            if (payload.eventType === 'INSERT') return { ...s, tasks: [...s.tasks, mappedTask] };
+            return { ...s, tasks: s.tasks.map(task => task.id === t.id ? { ...task, ...mappedTask } : task) };
+          }
           if (payload.eventType === 'DELETE') return { ...s, tasks: s.tasks.filter(t => t.id !== payload.old.id) };
           return s;
         });
@@ -70,8 +88,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const projectChannel = supabase.channel('projects')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
         setState(s => {
-          if (payload.eventType === 'INSERT') return { ...s, projects: [...s.projects, payload.new as Project] };
-          if (payload.eventType === 'UPDATE') return { ...s, projects: s.projects.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p) };
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const p = payload.new as any;
+            const mappedProject: Project = {
+              ...p,
+              dueDate: p.due_date,
+              leadId: p.lead_id,
+              memberIds: p.member_ids || [],
+              externalLinks: p.external_links || [],
+              createdAt: p.created_at,
+              updatedAt: p.updated_at
+            };
+            if (payload.eventType === 'INSERT') return { ...s, projects: [...s.projects, mappedProject] };
+            return { ...s, projects: s.projects.map(project => project.id === p.id ? { ...project, ...mappedProject } : project) };
+          }
           if (payload.eventType === 'DELETE') return { ...s, projects: s.projects.filter(p => p.id !== payload.old.id) };
           return s;
         });

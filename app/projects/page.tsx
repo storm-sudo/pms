@@ -50,6 +50,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { useApp, useProjects, useTasksByProject, useUser, useUsers } from '@/lib/store';
 import { useToast } from '@/components/ui/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { departmentColors, priorityColors, projectStatusColors, statusColors } from '@/lib/mock-data';
 import { Project, Task, Priority, Department, ProjectStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -337,6 +339,8 @@ export default function ProjectsPage() {
   const [newProjectPriority, setNewProjectPriority] = useState<Priority>('medium');
   const [newProjectStatus, setNewProjectStatus] = useState<ProjectStatus>('active');
   const [newProjectDueDate, setNewProjectDueDate] = useState('');
+  const [newProjectLeadId, setNewProjectLeadId] = useState<string>('');
+  const [newProjectMemberIds, setNewProjectMemberIds] = useState<string[]>([]);
 
   // Listen for edit-project events from ProjectCard
   useEffect(() => {
@@ -349,6 +353,8 @@ export default function ProjectsPage() {
       setNewProjectPriority(project.priority);
       setNewProjectStatus(project.status);
       setNewProjectDueDate(project.dueDate || '');
+      setNewProjectLeadId(project.leadId || '');
+      setNewProjectMemberIds(project.memberIds || []);
       setShowNewProject(true);
     };
     window.addEventListener('edit-project', handler);
@@ -362,6 +368,8 @@ export default function ProjectsPage() {
     setNewProjectPriority('medium');
     setNewProjectStatus('active');
     setNewProjectDueDate('');
+    setNewProjectLeadId('');
+    setNewProjectMemberIds([]);
     setEditingProject(null);
   };
 
@@ -385,6 +393,8 @@ export default function ProjectsPage() {
         priority: newProjectPriority,
         status: newProjectStatus,
         dueDate: newProjectDueDate || undefined,
+        leadId: newProjectLeadId || undefined,
+        memberIds: newProjectMemberIds,
       });
     } else {
       await addProject({
@@ -393,7 +403,8 @@ export default function ProjectsPage() {
         department: newProjectDept,
         status: newProjectStatus,
         progress: 0,
-        memberIds: [],
+        memberIds: newProjectMemberIds,
+        leadId: newProjectLeadId || undefined,
         externalLinks: [],
         comments: [],
         milestones: [],
@@ -429,7 +440,7 @@ export default function ProjectsPage() {
 
       {/* New/Edit Project Dialog */}
       <Dialog open={showNewProject} onOpenChange={(open) => { setShowNewProject(open); if (!open) resetForm(); }}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{editingProject ? 'Edit Project' : 'New Project'}</DialogTitle>
           </DialogHeader>
@@ -498,6 +509,39 @@ export default function ProjectsPage() {
                   onChange={(e) => setNewProjectDueDate(e.target.value)}
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Project Lead</Label>
+              <Select value={newProjectLeadId} onValueChange={setNewProjectLeadId}>
+                <SelectTrigger><SelectValue placeholder="Select a lead..." /></SelectTrigger>
+                <SelectContent>
+                  {users.filter(u => u.role === 'admin' || u.status === 'approved').map((user) => (
+                    <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Team Members</Label>
+              <ScrollArea className="h-[120px] rounded-md border p-2">
+                <div className="space-y-2">
+                  {users.map((user) => (
+                    <div key={user.id} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`member-${user.id}`} 
+                        checked={newProjectMemberIds.includes(user.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) setNewProjectMemberIds([...newProjectMemberIds, user.id]);
+                          else setNewProjectMemberIds(newProjectMemberIds.filter(id => id !== user.id));
+                        }}
+                      />
+                      <label htmlFor={`member-${user.id}`} className="text-sm font-medium leading-none cursor-pointer">
+                        {user.name} ({user.department})
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => { setShowNewProject(false); resetForm(); }}>Cancel</Button>
