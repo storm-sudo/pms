@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
 import { User, Project, Task, Comment, AppSettings, TaskStatus, Priority } from '@/lib/types';
