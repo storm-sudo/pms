@@ -31,9 +31,12 @@ export function TeamWorkload() {
 
   // Sort by issues (overloaded first, then by late tasks)
   const sortedWorkload = [...stats.teamWorkload].sort((a, b) => {
-    const loadOrder = { overloaded: 0, heavy: 1, normal: 2, light: 3 };
-    if (loadOrder[a.load] !== loadOrder[b.load]) {
-      return loadOrder[a.load] - loadOrder[b.load];
+    const loadOrder: Record<string, number> = { overloaded: 0, heavy: 1, normal: 2, light: 3 };
+    const aLoad = a.load as string;
+    const bLoad = b.load as string;
+    
+    if (loadOrder[aLoad] !== loadOrder[bLoad]) {
+      return loadOrder[aLoad] - loadOrder[bLoad];
     }
     return b.lateTasks - a.lateTasks;
   });
@@ -107,10 +110,10 @@ export function TeamWorkload() {
                       variant="outline"
                       className={cn(
                         'text-xs text-white border-0',
-                        loadColors[item.load]
+                        loadColors[item.load as keyof typeof loadColors]
                       )}
                     >
-                      {loadLabels[item.load]}
+                      {loadLabels[item.load as keyof typeof loadLabels]}
                     </Badge>
                   </div>
                 </div>
