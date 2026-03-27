@@ -38,7 +38,7 @@ export default function TimelinePage() {
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       if (filterProject !== "all" && task.projectId !== filterProject) return false
-      if (filterUser !== "all" && task.assigneeId !== filterUser) return false
+      if (filterUser !== "all" && !task.assigneeIds.includes(filterUser)) return false
       return true
     })
   }, [tasks, filterProject, filterUser])
@@ -291,7 +291,7 @@ export default function TimelinePage() {
                   {/* Tasks */}
                   {projectTasks.map((task) => {
                     const position = getTaskPosition(task)
-                    const assignee = users.find((u) => u.id === task.assigneeId)
+                    const assignee = users.find((u) => task.assigneeIds.includes(u.id))
 
                     return (
                       <div
