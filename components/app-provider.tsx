@@ -151,7 +151,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Task actions
-  const addTask = useCallback((task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addTask = useCallback((task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => {
     const now = new Date().toISOString();
     const newTask: Task = {
       ...task,
@@ -165,9 +165,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updatedAt: now,
     };
     setState(s => ({ ...s, tasks: [...s.tasks, newTask] }));
+    
+    const silent = options?.silent ?? false;
 
     // Notify new assignees
-    if (newTask.assigneeIds.length > 0) {
+    if (newTask.assigneeIds.length > 0 && !silent) {
       const project = state.projects.find(p => p.id === newTask.projectId);
       const assignees = state.users.filter(u => newTask.assigneeIds.includes(u.id));
       if (project) {
@@ -181,12 +183,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [state.projects, state.users, state.currentUser]);
 
-  const updateTask = useCallback((id: string, updates: Partial<Task>) => {
+  const updateTask = useCallback((id: string, updates: Partial<Task>, options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
     setState(s => {
       const oldTask = s.tasks.find(t => t.id === id);
       const newTask = oldTask ? { ...oldTask, ...updates, updatedAt: new Date().toISOString() } : null;
       
-      if (newTask && updates.assigneeIds) {
+      if (newTask && updates.assigneeIds && !silent) {
         // Find newly added assignees
         const newAssigneeIds = updates.assigneeIds.filter(id => !oldTask?.assigneeIds.includes(id));
         if (newAssigneeIds.length > 0) {
@@ -204,6 +207,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
     });
   }, []);
+
+  const notifyAssignees = useCallback((taskId: string, userIds: string[]) => {
+    const task = state.tasks.find(t => t.id === taskId);
+    const project = state.projects.find(p => p.id === task?.projectId);
+    const assignees = state.users.filter(u => userIds.includes(u.id));
+    
+    if (task && project && assignees.length > 0) {
+      notificationService.notifyTaskAssignment(task, project, assignees, state.currentUser);
+      toast({
+        title: 'Notifications Sent',
+        description: `Alerted ${assignees.length} members about "${task.title}".`,
+      });
+    }
+  }, [state.tasks, state.projects, state.users, state.currentUser]);
 
   const deleteTask = useCallback((id: string) => {
     setState(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== id) }));
@@ -454,6 +471,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     rejectUser,
     addUser,
     addTaskLog,
+    notifyAssignees,
   };
 
   return (

@@ -46,7 +46,7 @@ import { Priority, TaskStatus, Subtask } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export function TaskDetailPanel() {
-  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, addTaskLog, deleteTask, settings } = useApp();
+  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, addTaskLog, deleteTask, settings, notifyAssignees } = useApp();
   const task = useTask(selectedTaskId || undefined);
   const project = useProject(task?.projectId);
   const users = useUsers();
@@ -61,6 +61,7 @@ export function TaskDetailPanel() {
   const [logContent, setLogContent] = useState('');
   const [logHours, setLogHours] = useState('');
   const [showLogForm, setShowLogForm] = useState(false);
+  const [notifying, setNotifying] = useState(false);
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
@@ -133,17 +134,24 @@ export function TaskDetailPanel() {
       ? task.assigneeIds.filter(id => id !== userId)
       : [...task.assigneeIds, userId];
     
-    updateTask(task.id, { assigneeIds: newIds });
+    updateTask(task.id, { assigneeIds: newIds }, { silent: true });
   };
   
   const assignTeam = (department: string) => {
     const teamMembers = users.filter(u => u.department === department).map(u => u.id);
     const uniqueIds = Array.from(new Set([...task.assigneeIds, ...teamMembers]));
-    updateTask(task.id, { assigneeIds: uniqueIds });
+    updateTask(task.id, { assigneeIds: uniqueIds }, { silent: true });
     toast({ 
       title: "Team Assigned", 
       description: `Added all members from ${department} to this task.` 
     });
+  };
+
+  const handleNotify = async () => {
+    if (!task || task.assigneeIds.length === 0) return;
+    setNotifying(true);
+    await notifyAssignees(task.id, task.assigneeIds);
+    setNotifying(false);
   };
 
   const handleAddLog = () => {
@@ -329,6 +337,22 @@ export function TaskDetailPanel() {
                   ))}
                 </SelectContent>
               </Select>
+
+              {task.assigneeIds.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className={cn(
+                    "h-10 px-3 gap-2 font-bold text-[10px] uppercase tracking-widest border-2 transition-all",
+                    notifying ? "bg-muted" : "bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700"
+                  )}
+                  onClick={handleNotify}
+                  disabled={notifying}
+                >
+                  <Clock className={cn("h-3.5 w-3.5", notifying && "animate-spin")} />
+                  {notifying ? "..." : "Notify"}
+                </Button>
+              )}
 
               {currentUser.role === 'admin' && (
                 <DropdownMenu>

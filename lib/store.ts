@@ -31,8 +31,9 @@ export interface AppActions {
   setSelectedUserId: (id: string | null) => void;
 
   // Task actions
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateTask: (id: string, updates: Partial<Task>) => void;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => void;
+  updateTask: (id: string, updates: Partial<Task>, options?: { silent?: boolean }) => void;
+  notifyAssignees: (taskId: string, userIds: string[]) => void;
   deleteTask: (id: string) => void;
   addTaskComment: (taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
   bulkAddTasks: (projectId: string, titles: string[]) => void;

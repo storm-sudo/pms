@@ -41,7 +41,7 @@ import { statusColors } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 
 export default function AdminTasksPage() {
-  const { updateTask, projects, addTask } = useApp();
+  const { updateTask, projects, addTask, notifyAssignees } = useApp();
   const tasks = useTasks();
   const users = useUsers();
   const isAdmin = useIsAdmin();
@@ -53,6 +53,8 @@ export default function AdminTasksPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskProjectId, setNewTaskProjectId] = useState('');
+  
+  const [notifying, setNotifying] = useState(false);
 
   // Security check
   if (!isAdmin) {
@@ -85,7 +87,7 @@ export default function AdminTasksPage() {
       ? task.assigneeIds.filter(id => id !== userId)
       : [...task.assigneeIds, userId];
     
-    updateTask(taskId, { assigneeIds: newIds });
+    updateTask(taskId, { assigneeIds: newIds }, { silent: true });
   };
 
   const assignTeam = (taskId: string, department: string) => {
@@ -95,7 +97,7 @@ export default function AdminTasksPage() {
     const teamMembers = users.filter(u => u.department === department).map(u => u.id);
     const uniqueIds = Array.from(new Set([...task.assigneeIds, ...teamMembers]));
     
-    updateTask(taskId, { assigneeIds: uniqueIds });
+    updateTask(taskId, { assigneeIds: uniqueIds }, { silent: true });
     toast({ 
       title: "Team Assigned", 
       description: `Added all members from ${department} to "${task.title}".` 
@@ -127,12 +129,20 @@ export default function AdminTasksPage() {
       tags: [],
       assigneeIds: [],
       order: tasks.filter(t => t.projectId === projectId).length,
-    });
+    }, { silent: true });
     
     setNewTaskTitle('');
     setNewTaskProjectId('');
     setCreateDialogOpen(false);
-    toast({ title: "Task Created", description: "You can now assign it to members below." });
+    toast({ title: "Task Created", description: "You can now assign and notify members below." });
+  };
+
+  const handleNotify = async () => {
+    if (!selectedTask || selectedTask.assigneeIds.length === 0) return;
+    
+    setNotifying(true);
+    await notifyAssignees(selectedTask.id, selectedTask.assigneeIds);
+    setNotifying(false);
   };
 
   return (
@@ -300,14 +310,26 @@ export default function AdminTasksPage() {
                       <Users className="h-4 w-4 text-blue-500" />
                       <h4 className="text-xs font-black uppercase tracking-[0.2em]">Individual Members</h4>
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 text-[9px] font-bold text-destructive hover:text-white hover:bg-destructive uppercase tracking-widest"
-                      onClick={() => clearAssignees(selectedTask.id)}
-                    >
-                      Clear All
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="default" 
+                        size="sm" 
+                        className="h-8 bg-blue-600 hover:bg-blue-700 font-black uppercase text-[10px] tracking-widest gap-2 animate-in fade-in zoom-in"
+                        onClick={handleNotify}
+                        disabled={notifying || selectedTask.assigneeIds.length === 0}
+                      >
+                        <Clock className={cn("h-3 w-3", notifying && "animate-spin")} />
+                        {notifying ? "Sending..." : "Notify All Assignees"}
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[9px] font-bold text-destructive hover:text-white hover:bg-destructive uppercase tracking-widest"
+                        onClick={() => clearAssignees(selectedTask.id)}
+                      >
+                        Clear All
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -344,14 +366,14 @@ export default function AdminTasksPage() {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-blue-600/5 border border-blue-500/10 flex items-start gap-4">
+                  <div className="p-5 rounded-2xl bg-blue-600/5 border border-blue-500/10 flex items-start gap-4">
                   <div className="h-10 w-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0">
-                    <Clock className="h-5 w-5 text-blue-600" />
+                    <ShieldCheck className="h-5 w-5 text-blue-600" />
                   </div>
                   <div className="space-y-1">
-                    <h5 className="text-sm font-black uppercase tracking-tight">Assignment Analytics</h5>
+                    <h5 className="text-sm font-black uppercase tracking-tight">Assignment Control</h5>
                     <p className="text-xs text-muted-foreground font-medium">
-                      Current load: {selectedTask.assigneeIds.length} members. Assignees see this instantly.
+                      Assignments are now silent. Click <span className="text-blue-600 font-bold">"Notify All Assignees"</span> above to send batch email alerts once your selection is final.
                     </p>
                   </div>
                 </div>
