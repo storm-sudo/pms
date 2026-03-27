@@ -60,6 +60,7 @@ export default function UserManagementPage() {
   const [editRole, setEditRole] = useState<"admin" | "member">("member")
   const [editDept, setEditDept] = useState("Mol Bio")
   const [editJoinedDate, setEditJoinedDate] = useState("")
+  const [processingId, setProcessingId] = useState<string | null>(null)
 
   if (!isAdmin) {
     return (
@@ -142,16 +143,40 @@ export default function UserManagementPage() {
                         size="sm" 
                         variant="ghost" 
                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={async () => await rejectUser(user.id)}
+                        disabled={!!processingId}
+                        onClick={async () => {
+                          setProcessingId(user.id)
+                          try {
+                            await rejectUser(user.id)
+                            toast.success("User Rejected", { description: `${user.name}'s request has been removed.` })
+                          } catch (err) {
+                            toast.error("Process Failed", { description: "Could not reject user." })
+                          } finally {
+                            setProcessingId(null)
+                          }
+                        }}
                       >
-                        <XCircle className="mr-1 h-4 w-4" /> Reject
+                        <XCircle className="mr-1 h-4 w-4" /> 
+                        {processingId === user.id ? "Processing..." : "Reject"}
                       </Button>
                       <Button 
                         size="sm" 
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        onClick={async () => await approveUser(user.id)}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                        disabled={!!processingId}
+                        onClick={async () => {
+                          setProcessingId(user.id)
+                          try {
+                            await approveUser(user.id)
+                            toast.success("User Approved", { description: `${user.name} now has portal access.` })
+                          } catch (err) {
+                            toast.error("Approval Failed", { description: "Could not update user status." })
+                          } finally {
+                            setProcessingId(null)
+                          }
+                        }}
                       >
-                        <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
+                        <CheckCircle2 className="mr-1 h-4 w-4" />
+                        {processingId === user.id ? "Processing..." : "Approve"}
                       </Button>
                     </div>
                   ) : (

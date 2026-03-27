@@ -11,6 +11,8 @@ export const supabaseService = {
       joinedDate: p.joined_date,
       lastActive: p.last_active,
       avatar: p.avatar_url,
+      approvedBy: p.approved_by,
+      approvedAt: p.approved_at,
       workload: p.workload || { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
     }));
   },
@@ -41,6 +43,7 @@ export const supabaseService = {
       dueDate: p.due_date,
       leadId: p.lead_id,
       memberIds: p.member_ids || [],
+      externalLinks: p.external_links || [],
       createdAt: p.created_at,
       updatedAt: p.updated_at
     }));
@@ -56,7 +59,8 @@ export const supabaseService = {
       priority: project.priority,
       due_date: project.dueDate,
       lead_id: project.leadId,
-      member_ids: project.memberIds
+      member_ids: project.memberIds,
+      external_links: project.externalLinks || []
     };
     const { data, error } = await supabase.from('projects').insert([dbProject]).select();
     if (error) throw error;
@@ -68,9 +72,11 @@ export const supabaseService = {
     if (updates.dueDate) dbUpdates.due_date = updates.dueDate;
     if (updates.leadId) dbUpdates.lead_id = updates.leadId;
     if (updates.memberIds) dbUpdates.member_ids = updates.memberIds;
+    if (updates.externalLinks) dbUpdates.external_links = updates.externalLinks;
     delete dbUpdates.dueDate;
     delete dbUpdates.leadId;
     delete dbUpdates.memberIds;
+    delete dbUpdates.externalLinks;
 
     const { error } = await supabase.from('projects').update(dbUpdates).eq('id', id);
     if (error) throw error;

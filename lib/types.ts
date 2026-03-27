@@ -133,7 +133,14 @@ export interface Project {
   startDate?: string;
   leadId?: string;
   memberIds: string[];
-  elnLinks: { userId: string; urls: string[] }[];
+  externalLinks: {
+    id: string;
+    title: string;
+    url: string;
+    userId: string;
+    type: 'eln' | 'other';
+    createdAt: string;
+  }[];
   comments: Comment[];
   milestones: {
     id: string;

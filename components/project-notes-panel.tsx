@@ -9,7 +9,6 @@ import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useApp, useProject, useUsers, useCurrentUser } from '@/lib/store';
 import { departmentColors } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
@@ -21,7 +20,9 @@ export function ProjectNotesPanel() {
   const currentUser = useCurrentUser();
   
   const [newComment, setNewComment] = useState('');
-  const [newElnUrl, setNewElnUrl] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [newLinkTitle, setNewLinkTitle] = useState('');
+  const [linkType, setLinkType] = useState<'eln' | 'other'>('eln');
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
@@ -36,241 +37,222 @@ export function ProjectNotesPanel() {
     setNewComment('');
   };
 
-  const handleAddElnLink = () => {
-    const url = newElnUrl.trim();
+  const handleAddExternalLink = () => {
+    const url = newLinkUrl.trim();
     if (!url) return;
     
-    const existingLink = project.elnLinks.find(l => l.userId === currentUser.id);
-    let updatedLinks;
+    const newLink = {
+      id: Math.random().toString(36).substring(2, 9),
+      title: newLinkTitle.trim() || (linkType === 'eln' ? 'ELN Entry' : 'Resource Link'),
+      url,
+      userId: currentUser.id,
+      type: linkType,
+      createdAt: new Date().toISOString()
+    };
     
-    if (existingLink) {
-      updatedLinks = project.elnLinks.map(l => 
-        l.userId === currentUser.id 
-          ? { ...l, urls: [...l.urls, url] }
-          : l
-      );
-    } else {
-      updatedLinks = [...project.elnLinks, { userId: currentUser.id, urls: [url] }];
-    }
+    const updatedLinks = [...(project.externalLinks || []), newLink];
+    updateProject(project.id, { externalLinks: updatedLinks });
     
-    updateProject(project.id, { elnLinks: updatedLinks });
-    setNewElnUrl('');
+    setNewLinkUrl('');
+    setNewLinkTitle('');
   };
 
   const memberUsers = project.memberIds.map(id => users.find(u => u.id === id)).filter(Boolean);
 
   return (
     <Sheet open={!!selectedProjectId} onOpenChange={(open) => !open && setSelectedProjectId(null)}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="space-y-0 pb-4">
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className={cn('text-xs', departmentColors[project.department])}>
+      <SheetContent className="w-full sm:max-w-lg flex flex-col h-full bg-slate-950 text-slate-50 border-slate-800">
+        <SheetHeader className="space-y-0 pb-4 shrink-0">
+          <div className="flex items-center gap-2 mb-1">
+            <Badge variant="outline" className={cn('text-[10px] uppercase tracking-wider h-5', departmentColors[project.department])}>
               {project.department}
             </Badge>
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider h-5 border-slate-700 text-slate-400">
+              {project.status}
+            </Badge>
           </div>
-          <SheetTitle className="text-lg font-semibold">{project.name}</SheetTitle>
+          <SheetTitle className="text-xl font-bold text-slate-100">{project.name}</SheetTitle>
           {project.description && (
-            <p className="text-sm text-muted-foreground">{project.description}</p>
+            <p className="text-xs text-slate-400 mt-1 line-clamp-2">{project.description}</p>
           )}
         </SheetHeader>
 
-        <Tabs defaultValue="notes" className="mt-4">
-          <TabsList className="w-full">
-            <TabsTrigger value="notes" className="flex-1">
-              <MessageSquare className="h-4 w-4 mr-2" />
-              Notes
-            </TabsTrigger>
-            <TabsTrigger value="eln" className="flex-1">
-              <Link2 className="h-4 w-4 mr-2" />
-              ELN Links
-            </TabsTrigger>
-          </TabsList>
+        <Separator className="bg-slate-800 mb-2" />
 
-          <TabsContent value="notes" className="mt-4 space-y-4">
-            {/* Comments */}
-            <div className="space-y-3">
+        <div className="flex-1 flex flex-col min-h-0 gap-6 overflow-hidden">
+          {/* Section 1: Project Notes */}
+          <section className="flex flex-col h-[50%] min-h-0 bg-slate-900/40 rounded-xl border border-slate-800/50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200 mb-4 px-1">
+              <MessageSquare className="h-4 w-4 text-blue-400" />
+              Project Intelligence & Notes
+            </h3>
+            
+            <div className="flex-1 overflow-y-auto pr-2 mb-4 space-y-3 custom-scrollbar">
               {project.comments.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  No notes yet. Start the conversation!
-                </p>
+                <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                  <div className="h-10 w-10 rounded-full bg-slate-800/50 flex items-center justify-center mb-2">
+                    <MessageSquare className="h-5 w-5 text-slate-600" />
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">No intelligence reports yet.</p>
+                </div>
               ) : (
-                project.comments.map((comment) => {
+                project.comments.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((comment) => {
                   const author = users.find(u => u.id === comment.userId);
                   return (
                     <div 
                       key={comment.id} 
                       className={cn(
-                        'p-3 rounded-lg',
+                        'p-3 rounded-lg border transition-all duration-200',
                         comment.isLeadershipNote 
-                          ? 'bg-amber-500/10 border border-amber-500/20' 
-                          : 'bg-muted/50'
+                          ? 'bg-amber-500/5 border-amber-500/20 shadow-lg shadow-amber-900/10' 
+                          : 'bg-slate-800/40 border-slate-700/50 hover:bg-slate-800/60'
                       )}
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-[10px]">
+                        <Avatar className="h-5 w-5 ring-1 ring-slate-700">
+                          <AvatarFallback className="text-[9px] bg-slate-700 text-slate-300">
                             {author ? getInitials(author.name) : '?'}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm font-medium">{author?.name || 'Unknown'}</span>
+                        <span className="text-xs font-semibold text-slate-300">{author?.name || 'Unknown'}</span>
                         {comment.isLeadershipNote && (
-                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                            Leadership Note
+                          <Badge className="text-[9px] bg-amber-500/20 text-amber-400 border-none px-1.5 h-4">
+                            LEADERSHIP
                           </Badge>
                         )}
-                        <span className="text-xs text-muted-foreground ml-auto">
+                        <span className="text-[10px] text-slate-500 ml-auto">
                           {new Date(comment.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <p className="text-sm">{comment.content}</p>
+                      <p className="text-sm text-slate-300 leading-relaxed font-light">{comment.content}</p>
                     </div>
                   );
                 })
               )}
             </div>
 
-            {/* Add Comment */}
-            <div className="space-y-2">
+            <div className="pt-2 border-t border-slate-800/50 space-y-2">
               <Textarea
-                placeholder="Add a note..."
+                placeholder="Share project intelligence..."
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                rows={3}
+                className="min-h-[60px] max-h-[120px] bg-slate-950/50 border-slate-700 text-sm focus:border-blue-500/50 focus:ring-blue-500/10"
+                rows={2}
               />
               <Button 
                 size="sm" 
                 onClick={handleAddComment} 
                 disabled={!newComment.trim()}
-                className="w-full"
+                className="w-full bg-blue-600 hover:bg-blue-500 text-xs font-bold tracking-wider"
               >
-                <Send className="h-4 w-4 mr-2" />
-                Post Note
+                <Send className="h-3 w-3 mr-2" />
+                POST INTELLIGENCE
               </Button>
             </div>
-          </TabsContent>
+          </section>
 
-          <TabsContent value="eln" className="mt-4 space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Electronic Lab Notebook links for project members
-            </p>
-            
-            {project.elnLinks.length === 0 ? (
-              <div className="py-8 text-center">
-                <p className="text-sm text-muted-foreground">No ELN links added yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {project.elnLinks.map((link) => {
+          {/* Section 2: Resource Links */}
+          <section className="flex flex-col h-[50%] min-h-0 bg-slate-900/40 rounded-xl border border-slate-800/50 p-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-200 mb-4 px-1">
+              <Link2 className="h-4 w-4 text-emerald-400" />
+              ELN & External Resources
+            </h3>
+
+            <div className="flex-1 overflow-y-auto pr-2 mb-4 space-y-2 custom-scrollbar">
+              {(!project.externalLinks || project.externalLinks.length === 0) ? (
+                <div className="h-full flex flex-col items-center justify-center text-center p-4">
+                  <div className="h-10 w-10 rounded-full bg-slate-800/50 flex items-center justify-center mb-2">
+                    <Link2 className="h-5 w-5 text-slate-600" />
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">No links indexed for this project.</p>
+                </div>
+              ) : (
+                project.externalLinks.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((link) => {
                   const user = users.find(u => u.id === link.userId);
-                  if (!user) return null;
                   return (
-                    <div 
-                      key={link.userId}
-                      className="p-3 rounded-lg bg-muted/50 space-y-2"
-                    >
-                      <div className="flex items-center gap-3 mb-1">
-                        <Avatar className="h-8 w-8">
-                          <AvatarFallback className="text-xs">
-                            {getInitials(user.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <p className="font-medium text-sm">{user.name}</p>
+                    <div key={link.id} className="group relative flex items-start gap-3 p-2 rounded-lg bg-slate-800/30 border border-slate-700/30 hover:bg-slate-800/50 transition-colors">
+                      <div className={cn(
+                        "mt-1 p-1.5 rounded bg-slate-900",
+                        link.type === 'eln' ? "text-emerald-400" : "text-blue-400"
+                      )}>
+                        <Link2 className="h-3.5 w-3.5" />
                       </div>
-                      <div className="space-y-1 pl-11">
-                        {link.urls.map((url, idx) => (
-                          <div key={idx} className="flex items-center justify-between group">
-                            <a 
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-primary hover:underline truncate flex-1 flex items-center gap-1"
-                            >
-                              <Link2 className="h-3 w-3 shrink-0" />
-                              {url}
-                            </a>
-                            {(currentUser.role === 'admin' || currentUser.id === link.userId) && (
-                              <button 
-                                onClick={() => {
-                                  const updatedLinks = project.elnLinks.map(l => 
-                                    l.userId === link.userId 
-                                      ? { ...l, urls: l.urls.filter((_, i) => i !== idx) }
-                                      : l
-                                  ).filter(l => l.urls.length > 0);
-                                  updateProject(project.id, { elnLinks: updatedLinks });
-                                }}
-                                className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                      <div className="flex-1 min-w-0 pr-6">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className="text-xs font-bold text-slate-200 truncate">{link.title}</span>
+                          <Badge variant="secondary" className="text-[8px] h-3.5 bg-slate-900 text-slate-400 border-none italic">
+                            {link.type.toUpperCase()}
+                          </Badge>
+                        </div>
+                        <a 
+                          href={link.url.startsWith('http') ? link.url : `https://${link.url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[11px] text-blue-400 hover:text-blue-300 hover:underline block truncate mb-1"
+                        >
+                          {link.url}
+                        </a>
+                        <div className="flex items-center gap-1 text-[9px] text-slate-500">
+                          <span className="font-semibold text-slate-400">{user?.name || 'Unknown'}</span>
+                          <span>•</span>
+                          <span>{new Date(link.createdAt).toLocaleDateString()}</span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Add/Manage ELN Links */}
-            <div className="space-y-4">
-              <p className="text-sm font-medium">Manage My ELN Links</p>
-              <div className="flex gap-2">
-                <Input 
-                  placeholder="https://..."
-                  className="flex-1 h-9 text-xs bg-accent/30 border-none focus-visible:ring-blue-500/30"
-                  value={newElnUrl}
-                  onChange={(e) => setNewElnUrl(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddElnLink()}
-                />
-                <Button 
-                  size="sm" 
-                  className="h-9 bg-blue-600 hover:bg-blue-700 font-bold uppercase text-[10px] tracking-widest"
-                  onClick={handleAddElnLink}
-                  disabled={!newElnUrl.trim()}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Experiment Link
-                </Button>
-              </div>
-            </div>
-
-            <Separator />
-
-            <div>
-              <p className="text-sm font-medium mb-3">Project Members</p>
-              <div className="space-y-2">
-                {memberUsers.map((user) => {
-                  if (!user) return null;
-                  const userLinks = project.elnLinks.find(l => l.userId === user.id);
-                  return (
-                    <div 
-                      key={user.id}
-                      className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50"
-                    >
-                      <Avatar className="h-7 w-7">
-                        <AvatarFallback className="text-[10px]">
-                          {getInitials(user.name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-muted-foreground">{user.department}</p>
-                      </div>
-                      {userLinks && userLinks.urls.length > 0 && (
-                        <Badge variant="secondary" className="text-[10px]">
-                          {userLinks.urls.length} Link{userLinks.urls.length > 1 ? 's' : ''}
-                        </Badge>
+                      {(currentUser.role === 'admin' || currentUser.id === link.userId) && (
+                        <button 
+                          onClick={() => {
+                            const updatedLinks = project.externalLinks.filter(l => l.id !== link.id);
+                            updateProject(project.id, { externalLinks: updatedLinks });
+                          }}
+                          className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-400 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
                       )}
                     </div>
                   );
-                })}
+                })
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800/50 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Input 
+                  placeholder="Link Title (e.g. Protocol 123)"
+                  className="bg-slate-950/50 border-slate-700 text-xs h-9"
+                  value={newLinkTitle}
+                  onChange={(e) => setNewLinkTitle(e.target.value)}
+                />
+                <select 
+                  className="bg-slate-950/50 border-slate-700 rounded-md text-xs h-9 px-2 text-slate-300 outline-none focus:ring-1 focus:ring-blue-500/30"
+                  value={linkType}
+                  onChange={(e) => setLinkType(e.target.value as 'eln' | 'other')}
+                >
+                  <option value="eln">ELN Entry (Lab)</option>
+                  <option value="other">Reference / External</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Input 
+                  placeholder="Paste URL here..."
+                  className="flex-1 bg-slate-950/50 border-slate-700 text-xs h-9"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddExternalLink()}
+                />
+                <Button 
+                  size="sm" 
+                  className="h-9 bg-emerald-600 hover:bg-emerald-500 text-[10px] font-bold tracking-widest px-4"
+                  onClick={handleAddExternalLink}
+                  disabled={!newLinkUrl.trim()}
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  INDEX
+                </Button>
               </div>
             </div>
-          </TabsContent>
-        </Tabs>
+          </section>
+        </div>
       </SheetContent>
     </Sheet>
   );

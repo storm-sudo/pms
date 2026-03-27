@@ -394,7 +394,7 @@ export default function ProjectsPage() {
         status: newProjectStatus,
         progress: 0,
         memberIds: [],
-        elnLinks: [],
+        externalLinks: [],
         comments: [],
         milestones: [],
         tags: [],

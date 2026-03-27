@@ -77,10 +77,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
         });
       })
       .subscribe();
+      
+    const profileChannel = supabase.channel('profiles')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
+        setState(s => {
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            const p = payload.new as any;
+            const mappedUser: User = {
+              ...p,
+              joinedDate: p.joined_date,
+              lastActive: p.last_active,
+              avatar: p.avatar_url,
+              approvedBy: p.approved_by,
+              approvedAt: p.approved_at,
+              workload: p.workload || { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+            };
+            
+            if (payload.eventType === 'INSERT') return { ...s, users: [...s.users, mappedUser] };
+            return { ...s, users: s.users.map(u => u.id === p.id ? { ...u, ...mappedUser } : u) };
+          }
+          if (payload.eventType === 'DELETE') return { ...s, users: s.users.filter(u => u.id !== payload.old.id) };
+          return s;
+        });
+      })
+      .subscribe();
 
     return () => {
       supabase.removeChannel(taskChannel);
       supabase.removeChannel(projectChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, []);
 
