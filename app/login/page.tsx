@@ -31,38 +31,15 @@ export default function LoginPage() {
         // Small delay for UX feel
         await new Promise(r => setTimeout(r, 400));
 
-        // 1. Try our mock-data login (which handles the provided shahebaazkazi002nt@gmail.com)
-        const success = login(email, password);
+        // 1. Try Supabase login (via AppProvider)
+        const success = await login(email, password);
         
         if (success) {
             toast.success('Logged in successfully');
             router.push('/');
         } else {
-            // 2. Fallback to lib/auth.ts (localStorage) login if mock-data fails
-            const result = loginUser(email, password);
-            if (result.success && result.user) {
-                const existingUser = users.find(u => u.email.toLowerCase() === result.user!.email.toLowerCase());
-
-                const mappedUser: User = existingUser || {
-                    id: result.user.id,
-                    name: result.user.name,
-                    email: result.user.email,
-                    role: 'member', // Default role for manual registrations
-                    department: 'Mol Bio',
-                    joinedDate: result.user.createdAt,
-                    lastActive: new Date().toISOString(),
-                    status: result.user.status || 'pending',
-                    workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
-                };
-
-                setCurrentUser(mappedUser);
-                setLoggedIn(true);
-                toast.success('Logged in successfully');
-                router.push('/');
-            } else {
-                setError(result.error || 'Invalid email or password');
-                toast.error('Login failed');
-            }
+            setError('Invalid email or password or account not approved.');
+            toast.error('Login failed');
         }
 
         setLoading(false);

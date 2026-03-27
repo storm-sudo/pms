@@ -34,14 +34,18 @@ import {
   Shield, 
   UserPlus,
   Mail,
-  Building2
+  Building2,
+  Edit2,
+  Calendar
 } from "lucide-react"
 
 export default function UserManagementPage() {
-  const { users, approveUser, rejectUser, addUser } = useApp()
+  const { users, approveUser, rejectUser, addUser, updateUser, departments } = useApp()
   const isAdmin = useIsAdmin()
   const [searchQuery, setSearchQuery] = useState("")
   const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [isEditOpen, setIsEditOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<any>(null)
   
   // New user form state
   const [newName, setNewName] = useState("")
@@ -49,6 +53,13 @@ export default function UserManagementPage() {
   const [newPassword, setNewPassword] = useState("dmin123")
   const [newRole, setNewRole] = useState<"admin" | "member">("member")
   const [newDept, setNewDept] = useState("Mol Bio")
+
+  // Edit user form state
+  const [editName, setEditName] = useState("")
+  const [editEmail, setEditEmail] = useState("")
+  const [editRole, setEditRole] = useState<"admin" | "member">("member")
+  const [editDept, setEditDept] = useState("Mol Bio")
+  const [editJoinedDate, setEditJoinedDate] = useState("")
 
   if (!isAdmin) {
     return (
@@ -131,24 +142,44 @@ export default function UserManagementPage() {
                         size="sm" 
                         variant="ghost" 
                         className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                        onClick={() => rejectUser(user.id)}
+                        onClick={async () => await rejectUser(user.id)}
                       >
                         <XCircle className="mr-1 h-4 w-4" /> Reject
                       </Button>
                       <Button 
                         size="sm" 
                         className="bg-emerald-600 hover:bg-emerald-700 text-white"
-                        onClick={() => approveUser(user.id)}
+                        onClick={async () => await approveUser(user.id)}
                       >
                         <CheckCircle2 className="mr-1 h-4 w-4" /> Approve
                       </Button>
                     </div>
                   ) : (
-                    <Badge variant="outline" className={
-                      user.status === 'approved' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' : 'text-red-600 border-red-200 bg-red-50'
-                    }>
-                      {user.status === 'approved' ? 'Approved' : 'Rejected'}
-                    </Badge>
+                    <div className="flex justify-end gap-2 items-center">
+                      <Badge variant="outline" className={
+                        user.status === 'approved' ? 'text-emerald-600 border-emerald-200 bg-emerald-50' : 'text-red-600 border-red-200 bg-red-50'
+                      }>
+                        {user.status === 'approved' ? 'Approved' : 'Rejected'}
+                      </Badge>
+                      {user.status === 'approved' && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={() => {
+                            setEditingUser(user);
+                            setEditName(user.name);
+                            setEditEmail(user.email);
+                            setEditRole(user.role as any);
+                            setEditDept(user.department);
+                            setEditJoinedDate(user.joinedDate.split('T')[0]);
+                            setIsEditOpen(true);
+                          }}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   )}
                 </td>
               </tr>
@@ -235,10 +266,9 @@ export default function UserManagementPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="bg-slate-800 border-slate-700 text-slate-50">
-                          <SelectItem value="Mol Bio">Mol Bio</SelectItem>
-                          <SelectItem value="AI">AI</SelectItem>
-                          <SelectItem value="Bioinfo">Bioinfo</SelectItem>
-                          <SelectItem value="Leadership">Leadership</SelectItem>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -253,12 +283,12 @@ export default function UserManagementPage() {
                     Cancel
                   </Button>
                   <Button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (!newName || !newEmail || !newEmail.endsWith('nt@gmail.com')) {
                         toast.error("Valid name and nt@gmail.com email required");
                         return;
                       }
-                      addUser({
+                      await addUser({
                         name: newName,
                         email: newEmail,
                         password: newPassword,
@@ -277,6 +307,99 @@ export default function UserManagementPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+              <DialogContent className="sm:max-w-[425px] bg-slate-900 border-slate-800 text-slate-50">
+                <DialogHeader>
+                  <DialogTitle>Edit User Profile</DialogTitle>
+                  <DialogDescription className="text-slate-400">
+                    Modify employee credentials and system metadata.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-name" className="text-slate-300">Full Name</Label>
+                    <Input 
+                      id="edit-name" 
+                      value={editName} 
+                      onChange={(e) => setEditName(e.target.value)}
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-email" className="text-slate-300">Email</Label>
+                    <Input 
+                      id="edit-email" 
+                      value={editEmail} 
+                      onChange={(e) => setEditEmail(e.target.value)}
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label className="text-slate-300">Role</Label>
+                      <Select value={editRole} onValueChange={(v: any) => setEditRole(v)}>
+                        <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectItem value="member">Member</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label className="text-slate-300">Department</Label>
+                      <Select value={editDept} onValueChange={setEditDept}>
+                        <SelectTrigger className="bg-slate-800 border-slate-700 text-slate-50">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700 text-slate-50">
+                          {departments.map((dept) => (
+                            <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-date" className="text-slate-300">Joined Date</Label>
+                    <Input 
+                      id="edit-date" 
+                      type="date"
+                      value={editJoinedDate} 
+                      onChange={(e) => setEditJoinedDate(e.target.value)}
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setIsEditOpen(false)}
+                    className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-50"
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={async () => {
+                      await updateUser(editingUser.id, {
+                        name: editName,
+                        email: editEmail,
+                        role: editRole,
+                        department: editDept as any,
+                        joinedDate: editJoinedDate ? new Date(editJoinedDate).toISOString() : editingUser.joinedDate
+                      });
+                      setIsEditOpen(false);
+                      toast.success("User profile updated successfully");
+                    }}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    Save Changes
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <Users className="h-5 w-5 text-primary" />
             </div>

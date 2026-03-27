@@ -249,12 +249,16 @@ export const defaultQuickFilters = [
   },
 ];
 
-// Department colors
-export const departmentColors: Record<Department, string> = {
+// Department colors (with fallback)
+export const departmentColors: Record<string, string> = {
   'Mol Bio': 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
   'AI': 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20',
   'Bioinfo': 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   'Leadership': 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20',
+};
+
+export const getDepartmentColor = (dept: string) => {
+  return departmentColors[dept] || 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
 };
 
 export const priorityColors: Record<Priority, string> = {

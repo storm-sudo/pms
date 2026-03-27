@@ -36,7 +36,7 @@ export default function RegisterPage() {
         // Small delay for UX feel
         await new Promise(r => setTimeout(r, 400));
 
-        const result = registerUser(name, email, password);
+        const result = await registerUser(name, email, password);
 
         if (result.success) {
             setSuccess(true);

@@ -1,5 +1,5 @@
 export type UserRole = 'admin' | 'member';
-export type Department = 'Mol Bio' | 'AI' | 'Bioinfo' | 'Leadership';
+export type Department = string;
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 export type TaskStatus = 'todo' | 'in-progress' | 'blocked' | 'review' | 'done';
 export type ProjectStatus = 'active' | 'on-hold' | 'at-risk' | 'completed';

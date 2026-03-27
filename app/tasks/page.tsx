@@ -52,10 +52,10 @@ function TaskCard({ task }: { task: Task }) {
     'done': <CheckCircle2 className="h-5 w-5 text-emerald-500" />,
   };
 
-  const toggleStatus = (e: React.MouseEvent) => {
+  const toggleStatus = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (task.status === 'done') {
-      updateTask(task.id, { status: 'todo', completedDate: undefined });
+      await updateTask(task.id, { status: 'todo', completedDate: undefined });
     } else {
       if (currentUser.role !== 'admin') {
         toast({
@@ -65,7 +65,7 @@ function TaskCard({ task }: { task: Task }) {
         });
         return;
       }
-      updateTask(task.id, { status: 'done', completedDate: new Date().toISOString().split('T')[0] });
+      await updateTask(task.id, { status: 'done', completedDate: new Date().toISOString().split('T')[0] });
     }
   };
 

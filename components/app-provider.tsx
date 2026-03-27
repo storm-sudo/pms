@@ -1,12 +1,12 @@
-'use client';
-
-import { useState, useCallback, useEffect, ReactNode } from 'react';
+import { useState, useCallback, useEffect, ReactNode, useRef } from 'react';
 import { AppContext, AppState, initialState } from '@/lib/store';
 import { User, Project, Task, Comment, AppSettings, TaskStatus, Priority } from '@/lib/types';
-import { logoutUser, getSession, getLoggedInUser, registerUserByAdmin } from '@/lib/auth';
+import { logoutUser, getSession, loginUser as supabaseLogin } from '@/lib/auth';
 import { toast } from '@/components/ui/use-toast';
 import { toast as sonner } from 'sonner';
 import { notificationService } from '@/lib/notifications';
+import { supabaseService } from '@/lib/supabase-service';
+import { supabase } from '@/lib/supabase';
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
@@ -15,54 +15,71 @@ function generateId() {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
 
-  // Restore session and users on mount
+  // Initial data fetch and real-time setup
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    const fetchData = async () => {
+      try {
+        const [profiles, depts, projects, tasks] = await Promise.all([
+          supabaseService.getProfiles(),
+          supabaseService.getDepartments(),
+          supabaseService.getProjects(),
+          supabaseService.getTasks()
+        ]);
 
-    // 1. Get users from localStorage
-    const storageData = localStorage.getItem('synapse-registered-users');
-    const registeredUsers: any[] = storageData ? JSON.parse(storageData) : [];
+        setState(s => {
+          const session = getSession();
+          let currentUser = null;
+          let isLoggedIn = false;
 
-    const mappedUsers: User[] = registeredUsers.map(ru => ({
-      id: ru.id,
-      name: ru.name,
-      email: ru.email,
-      role: 'member',
-      department: 'Mol Bio',
-      status: ru.status || 'pending',
-      joinedDate: ru.createdAt,
-      lastActive: new Date().toISOString(),
-      workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
-    }));
+          if (session) {
+            currentUser = profiles.find(u => u.id === session.userId) || null;
+            isLoggedIn = !!currentUser;
+          }
 
-    setState(s => {
-      // Start with all initial users from mock-data/initialState
-      const allMergedUsers = [...s.users];
-
-      // Add any additional users from localStorage that aren't already present
-      mappedUsers.forEach(mu => {
-        if (!allMergedUsers.some(u => u.email.toLowerCase() === mu.email.toLowerCase())) {
-          allMergedUsers.push(mu);
-        }
-      });
-
-      // Handle current session
-      const session = getSession();
-      let currentUser = null;
-      let isLoggedIn = false;
-
-      if (session) {
-        currentUser = allMergedUsers.find(u => u.id === session.userId) || null;
-        isLoggedIn = !!currentUser;
+          return {
+            ...s,
+            users: profiles,
+            departments: depts.length > 0 ? depts : s.departments,
+            projects: projects,
+            tasks: tasks,
+            currentUser: (currentUser || s.currentUser) as User,
+            isLoggedIn
+          };
+        });
+      } catch (error) {
+        console.error('Error fetching Supabase data:', error);
       }
+    };
 
-      return {
-        ...s,
-        users: allMergedUsers,
-        currentUser: currentUser as User,
-        isLoggedIn
-      };
-    });
+    fetchData();
+
+    // Set up Real-time subscriptions
+    const taskChannel = supabase.channel('tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+        setState(s => {
+          if (payload.eventType === 'INSERT') return { ...s, tasks: [...s.tasks, payload.new as Task] };
+          if (payload.eventType === 'UPDATE') return { ...s, tasks: s.tasks.map(t => t.id === payload.new.id ? { ...t, ...payload.new } : t) };
+          if (payload.eventType === 'DELETE') return { ...s, tasks: s.tasks.filter(t => t.id !== payload.old.id) };
+          return s;
+        });
+      })
+      .subscribe();
+
+    const projectChannel = supabase.channel('projects')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
+        setState(s => {
+          if (payload.eventType === 'INSERT') return { ...s, projects: [...s.projects, payload.new as Project] };
+          if (payload.eventType === 'UPDATE') return { ...s, projects: s.projects.map(p => p.id === payload.new.id ? { ...p, ...payload.new } : p) };
+          if (payload.eventType === 'DELETE') return { ...s, projects: s.projects.filter(p => p.id !== payload.old.id) };
+          return s;
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(taskChannel);
+      supabase.removeChannel(projectChannel);
+    };
   }, []);
 
   // Initialize theme from system preference or localStorage
@@ -100,25 +117,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(s => ({ ...s, isLoggedIn: false }));
   }, []);
 
-  const login = useCallback((email: string, password: string) => {
-    const user = state.users.find(u => u.email === email && u.password === password);
-    if (user) {
-      if (user.status !== 'approved') {
-        toast({
-          title: 'Account Pending Approval',
-          description: 'Your account has not been approved by an administrator yet.',
-          variant: 'destructive'
-        });
-        return false;
-      }
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('synapse-session', JSON.stringify({ userId: user.id, email: user.email }));
-      }
-      setState(s => ({ ...s, currentUser: user, isLoggedIn: true }));
+  const login = useCallback(async (email: string, password: string) => {
+    const { success, user, error } = await supabaseLogin(email, password);
+    if (success && user) {
+      // Map user fields for state consistency
+      const mappedUser: User = {
+        ...user,
+        joinedDate: user.joined_date,
+        lastActive: user.last_active,
+        avatar: user.avatar_url,
+        workload: user.workload || { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+      };
+      setState(s => ({ ...s, currentUser: mappedUser, isLoggedIn: true }));
       return true;
     }
+    if (error) {
+      toast({
+        title: 'Login Error',
+        description: error,
+        variant: 'destructive'
+      });
+    }
     return false;
-  }, [state.users]);
+  }, []);
 
   const setTheme = useCallback((theme: 'light' | 'dark') => {
     setState(s => ({ ...s, theme }));
@@ -152,62 +173,63 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Task actions
-  const addTask = useCallback((task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => {
-    const now = new Date().toISOString();
-    const newTask: Task = {
-      ...task,
-      subtasks: [],
-      comments: [],
-      logs: [],
-      summary: '',
-      order: 0,
-      id: `t${generateId()}`,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setState(s => ({ ...s, tasks: [...s.tasks, newTask] }));
-    
-    const silent = options?.silent ?? false;
-
-    // Notify new assignees
-    if (newTask.assigneeIds.length > 0 && !silent) {
-      const project = state.projects.find(p => p.id === newTask.projectId);
-      const assignees = state.users.filter(u => newTask.assigneeIds.includes(u.id));
-      if (project) {
-        notificationService.notifyTaskAssignment(newTask, project, assignees, state.currentUser);
-      }
-    }
-
-    toast({
-      title: 'Task Created',
-      description: `"${newTask.title}" has been added successfully.`,
-    });
-  }, [state.projects, state.users, state.currentUser]);
-
-  const updateTask = useCallback((id: string, updates: Partial<Task>, options?: { silent?: boolean }) => {
-    const silent = options?.silent ?? false;
-    setState(s => {
-      const oldTask = s.tasks.find(t => t.id === id);
-      const newTask = oldTask ? { ...oldTask, ...updates, updatedAt: new Date().toISOString() } : null;
+  const addTask = useCallback(async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => {
+    try {
+      const newTask = await supabaseService.addTask({
+        ...task,
+        subtasks: [],
+        comments: [],
+        logs: [],
+        summary: '',
+        order: 0,
+      });
       
-      if (newTask && updates.assigneeIds && !silent) {
-        // Find newly added assignees
-        const newAssigneeIds = updates.assigneeIds.filter(id => !oldTask?.assigneeIds.includes(id));
-        if (newAssigneeIds.length > 0) {
-          const project = s.projects.find(p => p.id === newTask.projectId);
-          const assignees = s.users.filter(u => newAssigneeIds.includes(u.id));
-          if (project) {
-            notificationService.notifyTaskAssignment(newTask, project, assignees, s.currentUser);
-          }
+      const silent = options?.silent ?? false;
+
+      // Notify new assignees
+      if (newTask.assigneeIds.length > 0 && !silent) {
+        const project = state.projects.find(p => p.id === newTask.projectId);
+        const assignees = state.users.filter(u => newTask.assigneeIds.includes(u.id));
+        if (project) {
+          notificationService.notifyTaskAssignment(newTask, project, assignees, state.currentUser);
         }
       }
 
-      return {
-        ...s,
-        tasks: s.tasks.map(t => t.id === id ? newTask! : t),
-      };
-    });
-  }, []);
+      toast({
+        title: 'Task Created',
+        description: `"${newTask.title}" has been added successfully.`,
+      });
+    } catch (error) {
+      console.error('Error adding task:', error);
+      toast({ title: 'Error', description: 'Failed to create task.', variant: 'destructive' });
+    }
+  }, [state.projects, state.users, state.currentUser]);
+
+  const updateTask = useCallback(async (id: string, updates: Partial<Task>, options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    try {
+      await supabaseService.updateTask(id, updates);
+      
+      if (updates.assigneeIds && !silent) {
+        const oldTask = state.tasks.find(t => t.id === id);
+        const newAssigneeIds = updates.assigneeIds.filter(userId => !oldTask?.assigneeIds.includes(userId));
+        
+        if (newAssigneeIds.length > 0) {
+          const task = state.tasks.find(t => t.id === id);
+          if (task) {
+            const project = state.projects.find(p => p.id === task.projectId);
+            const assignees = state.users.filter(u => newAssigneeIds.includes(u.id));
+            if (project) {
+              notificationService.notifyTaskAssignment({ ...task, ...updates }, project, assignees, state.currentUser);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+      toast({ title: 'Error', description: 'Failed to update task.', variant: 'destructive' });
+    }
+  }, [state.tasks, state.projects, state.users, state.currentUser]);
 
   const notifyAssignees = useCallback((taskId: string, userIds: string[]) => {
     const task = state.tasks.find(t => t.id === taskId);
@@ -222,227 +244,221 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }, [state.tasks, state.projects, state.users, state.currentUser]);
 
-  const deleteTask = useCallback((id: string) => {
-    setState(s => ({ ...s, tasks: s.tasks.filter(t => t.id !== id) }));
+  const deleteTask = useCallback(async (id: string) => {
+    try {
+      await supabaseService.deleteTask(id);
+      toast({ title: 'Task Deleted', description: 'Task removed successfully.' });
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      toast({ title: 'Error', description: 'Failed to delete task.', variant: 'destructive' });
+    }
   }, []);
 
-  const addTaskComment = useCallback((taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
-    const newComment: Comment = {
-      ...comment,
-      id: `c${generateId()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setState(s => ({
-      ...s,
-      tasks: s.tasks.map(t =>
-        t.id === taskId
-          ? { ...t, comments: [...t.comments, newComment], updatedAt: new Date().toISOString() }
-          : t
-      ),
-    }));
+  const addTaskComment = useCallback(async (taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
+    try {
+      await supabaseService.addComment({
+        task_id: taskId,
+        user_id: comment.userId,
+        content: comment.content,
+        is_leadership_note: comment.isLeadershipNote,
+      });
+    } catch (error) {
+      console.error('Error adding comment:', error);
+    }
   }, []);
 
-  const bulkAddTasks = useCallback((projectId: string, titles: string[]) => {
-    const now = new Date().toISOString();
-    const projectTasks = state.tasks.filter(t => t.projectId === projectId);
-    const maxOrder = projectTasks.length > 0 ? Math.max(...projectTasks.map(t => t.order)) : 0;
+  const bulkAddTasks = useCallback(async (projectId: string, titles: string[]) => {
+    try {
+      const projectTasks = state.tasks.filter(t => t.projectId === projectId);
+      const maxOrder = projectTasks.length > 0 ? Math.max(...projectTasks.map(t => t.order)) : 0;
 
-    const newTasks: Task[] = titles.map((title, idx) => ({
-      id: `t${generateId()}`,
-      title: title.trim(),
-      projectId,
-      priority: 'medium' as const,
-      status: 'todo' as const,
-      subtasks: [],
-      comments: [],
-      logs: [],
-      summary: '',
-      tags: [],
-      assigneeIds: [],
-      order: maxOrder + idx + 1,
-      createdAt: now,
-      updatedAt: now,
-    }));
-
-    setState(s => ({ ...s, tasks: [...s.tasks, ...newTasks] }));
+      for (let i = 0; i < titles.length; i++) {
+        await supabaseService.addTask({
+          projectId,
+          title: titles[i].trim(),
+          priority: 'medium',
+          status: 'todo',
+          order: maxOrder + i + 1,
+        });
+      }
+    } catch (error) {
+      console.error('Error bulk adding tasks:', error);
+    }
   }, [state.tasks]);
 
-  const reorderTasks = useCallback((projectId: string, taskIds: string[]) => {
-    setState(s => ({
-      ...s,
-      tasks: s.tasks.map(t => {
-        if (t.projectId !== projectId) return t;
-        const newOrder = taskIds.indexOf(t.id);
-        if (newOrder === -1) return t;
-        return { ...t, order: newOrder };
-      }),
-    }));
+  const reorderTasks = useCallback(async (projectId: string, taskIds: string[]) => {
+    try {
+      // For each task, update its order in Supabase
+      // Optimization: We could use a RPC call here, but for now we'll do it sequentially
+      for (let i = 0; i < taskIds.length; i++) {
+        await supabaseService.updateTask(taskIds[i], { order: i });
+      }
+    } catch (error) {
+      console.error('Error reordering tasks:', error);
+    }
   }, []);
 
   // Project actions
-  const addProject = useCallback((project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const now = new Date().toISOString();
-    const newProject: Project = {
-      ...project,
-      id: `p${generateId()}`,
-      createdAt: now,
-      updatedAt: now,
-    };
-    setState(s => ({ ...s, projects: [...s.projects, newProject] }));
+  const addProject = useCallback(async (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      await supabaseService.addProject(project);
+      toast({ title: 'Project Created', description: `"${project.name}" has been added successfully.` });
+    } catch (error) {
+      console.error('Error adding project:', error);
+      toast({ title: 'Error', description: 'Failed to create project.', variant: 'destructive' });
+    }
   }, []);
 
-  const updateProject = useCallback((id: string, updates: Partial<Project>) => {
-    setState(s => ({
-      ...s,
-      projects: s.projects.map(p =>
-        p.id === id ? { ...p, ...updates, updatedAt: new Date().toISOString() } : p
-      ),
-    }));
+  const updateProject = useCallback(async (id: string, updates: Partial<Project>) => {
+    try {
+      await supabaseService.updateProject(id, updates);
+    } catch (error) {
+      console.error('Error updating project:', error);
+      toast({ title: 'Error', description: 'Failed to update project.', variant: 'destructive' });
+    }
   }, []);
 
-  const addProjectComment = useCallback((projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
-    const newComment: Comment = {
-      ...comment,
-      id: `c${generateId()}`,
-      createdAt: new Date().toISOString(),
-    };
-    setState(s => ({
-      ...s,
-      projects: s.projects.map(p =>
-        p.id === projectId
-          ? { ...p, comments: [...p.comments, newComment], updatedAt: new Date().toISOString() }
-          : p
-      ),
-    }));
+  const addProjectComment = useCallback(async (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => {
+    try {
+      await supabaseService.addComment({
+        project_id: projectId,
+        user_id: comment.userId,
+        content: comment.content,
+        is_leadership_note: comment.isLeadershipNote,
+      });
+    } catch (error) {
+      console.error('Error adding project comment:', error);
+    }
   }, []);
 
-  const updateUser = useCallback((id: string, updates: Partial<User>) => {
-    setState(s => ({
-      ...s,
-      users: s.users.map(u => u.id === id ? { ...u, ...updates } : u),
-    }));
+  const updateUser = useCallback(async (id: string, updates: Partial<User>) => {
+    try {
+      await supabaseService.updateProfile(id, updates);
+      toast({ title: 'Profile Updated', description: 'User metadata salvaged to database.' });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast({ title: 'Error', description: 'Failed to update profile.', variant: 'destructive' });
+    }
   }, []);
 
   const updateSettings = useCallback((updates: Partial<AppSettings>) => {
     setState(s => ({ ...s, settings: { ...s.settings, ...updates } }));
   }, []);
 
-  const approveUser = useCallback((userId: string) => {
-    setState(s => {
-      const user = s.users.find(u => u.id === userId);
+  const approveUser = useCallback(async (userId: string) => {
+    try {
+      await supabaseService.updateProfile(userId, { 
+        status: 'approved', 
+        approved_by: state.currentUser.id, 
+        approved_at: new Date().toISOString() 
+      });
+      
+      const user = state.users.find(u => u.id === userId);
       if (user) {
-        const updatedUser: User = { 
-          ...user, 
-          status: 'approved', 
-          approvedBy: s.currentUser.id, 
-          approvedAt: new Date().toISOString() 
-        };
-        
-        // Notify user via email
         notificationService.sendEmail(
           user.email,
           'SYNAPSE: Account Approved',
           `Dear ${user.name.split(' ')[0]}, your account has been approved. You can now log in to the portal.`
         );
-
         toast({ title: 'User Approved', description: `${user.name} now has access.` });
-
-        return {
-          ...s,
-          users: s.users.map(u => u.id === userId ? updatedUser : u)
-        };
       }
-      return s;
-    });
-  }, []);
+    } catch (error) {
+      console.error('Error approving user:', error);
+      toast({ title: 'Error', description: 'Failed to approve user.', variant: 'destructive' });
+    }
+  }, [state.users, state.currentUser]);
 
-  const rejectUser = useCallback((userId: string) => {
-    setState(s => {
-      const user = s.users.find(u => u.id === userId);
+  const rejectUser = useCallback(async (userId: string) => {
+    try {
+      // In a real app, we might just mark as 'rejected' or delete
+      // For now, let's delete to match the original logic
+      const user = state.users.find(u => u.id === userId);
+      await supabase.from('profiles').delete().eq('id', userId);
+      
       if (user) {
-        // Notify user via email
         notificationService.sendEmail(
           user.email,
           'SYNAPSE: Account Registration Update',
           `Dear ${user.name.split(' ')[0]}, your registration request could not be approved at this time.`
         );
-
         toast({ title: 'User Rejected', description: `${user.name} has been removed.` });
-
-        return {
-          ...s,
-          users: s.users.filter(u => u.id !== userId)
-        };
       }
-      return s;
-    });
-  }, []);
+    } catch (error) {
+      console.error('Error rejecting user:', error);
+      toast({ title: 'Error', description: 'Failed to reject user.', variant: 'destructive' });
+    }
+  }, [state.users]);
 
-  const addUser = useCallback((userData: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => {
-    const id = `user_${generateId()}`;
-    const now = new Date().toISOString();
-    
-    const newUser: User = {
-      ...userData,
-      id,
-      status: 'approved', // Admin created users are approved by default
-      joinedDate: now,
-      lastActive: now,
-      workload: { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
-    };
+  const addUser = useCallback(async (userData: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => {
+    try {
+      // 1. Create the user in profiles (In a real system, we'd use Supabase Auth)
+      const id = crypto.randomUUID(); // Use UUID for Supabase
+      const now = new Date().toISOString();
+      
+      const dbProfile = {
+        id,
+        name: userData.name,
+        email: userData.email,
+        role: userData.role,
+        department: userData.department,
+        status: 'approved',
+        joined_date: now,
+        last_active: now,
+      };
 
-    // 1. Add to auth storage
-    registerUserByAdmin({
-      id,
-      name: newUser.name,
-      email: newUser.email,
-      password: userData.password || 'dmin123', // Default password
-      status: 'approved',
-      createdAt: now
-    });
+      const { error } = await supabase.from('profiles').insert([dbProfile]);
+      if (error) throw error;
 
-    // 2. Add to app state
-    setState(s => ({ ...s, users: [...s.users, newUser] }));
+      notificationService.sendEmail(
+        userData.email,
+        'SYNAPSE: Account Created',
+        `Dear ${userData.name.split(' ')[0]}, your account has been created by an administrator.<br><br>
+        <strong>Login Details:</strong><br>
+        Email: ${userData.email}<br>
+        Password: ${userData.password || 'dmin123'}<br><br>
+        You can now log in to the portal.`
+      );
 
-    // 3. Notify user via email
-    notificationService.sendEmail(
-      newUser.email,
-      'SYNAPSE: Account Created',
-      `Dear ${newUser.name.split(' ')[0]}, your account has been created by an administrator.<br><br>
-      <strong>Login Details:</strong><br>
-      Email: ${newUser.email}<br>
-      Password: ${userData.password || 'dmin123'}<br><br>
-      You can now log in to the portal.`
-    );
-
-    toast({ title: 'User Created', description: `${newUser.name} has been added to the team.` });
+      toast({ title: 'User Created', description: `${userData.name} has been added to the team.` });
+    } catch (error) {
+      console.error('Error adding user:', error);
+      toast({ title: 'Error', description: 'Failed to add user.', variant: 'destructive' });
+    }
   }, []);
   
-  const addTaskLog = useCallback((taskId: string, log: { content: string; hoursSpent: number }) => {
-    const id = `log_${generateId()}`;
-    const now = new Date().toISOString();
-    const newLog = {
-      ...log,
-      id,
-      userId: state.currentUser.id,
-      userName: state.currentUser.name,
-      createdAt: now,
-    };
+  const addDepartment = useCallback(async (name: string) => {
+    try {
+      await supabaseService.addDepartment(name);
+      sonner.success('Department Added', {
+        description: `"${name}" is now available across the portal.`,
+      });
+    } catch (error) {
+      console.error('Error adding department:', error);
+      toast({ title: 'Error', description: 'Failed to add department.', variant: 'destructive' });
+    }
+  }, []);
 
-    setState(s => ({
-      ...s,
-      tasks: s.tasks.map(t =>
-        t.id === taskId
-          ? { 
-              ...t, 
-              logs: [...(t.logs || []), newLog], 
-              actualHours: (t.actualHours || 0) + log.hoursSpent,
-              updatedAt: now 
-            }
-          : t
-      ),
-    }));
-  }, [state.currentUser]);
+  const addTaskLog = useCallback(async (taskId: string, log: { content: string; hoursSpent: number }) => {
+    try {
+      const now = new Date().toISOString();
+      await supabaseService.addTaskLog({
+        task_id: taskId,
+        user_id: state.currentUser.id,
+        content: log.content,
+        hours_spent: log.hoursSpent,
+      });
+
+      // Update task actual hours
+      const task = state.tasks.find(t => t.id === taskId);
+      if (task) {
+        await supabaseService.updateTask(taskId, {
+          actualHours: (task.actualHours || 0) + log.hoursSpent,
+        });
+      }
+    } catch (error) {
+      console.error('Error adding task log:', error);
+    }
+  }, [state.currentUser, state.tasks]);
 
   const contextValue = {
     ...state,
@@ -471,6 +487,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     rejectUser,
     addUser,
     addTaskLog,
+    addDepartment,
     notifyAssignees,
   };
 

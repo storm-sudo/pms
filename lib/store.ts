@@ -16,13 +16,14 @@ export interface AppState {
   selectedProjectId: string | null;
   selectedUserId: string | null;
   settings: AppSettings;
+  departments: string[];
 }
 
 export interface AppActions {
   setCurrentUser: (user: User) => void;
   setLoggedIn: (loggedIn: boolean) => void;
   logout: () => void;
-  login: (email: string, password: string) => boolean;
+  login: (email: string, password: string) => Promise<boolean>;
   setTheme: (theme: 'light' | 'dark') => void;
   toggleTheme: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -31,24 +32,25 @@ export interface AppActions {
   setSelectedUserId: (id: string | null) => void;
 
   // Task actions
-  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => void;
-  updateTask: (id: string, updates: Partial<Task>, options?: { silent?: boolean }) => void;
+  addTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => Promise<void>;
+  updateTask: (id: string, updates: Partial<Task>, options?: { silent?: boolean }) => Promise<void>;
   notifyAssignees: (taskId: string, userIds: string[]) => void;
-  deleteTask: (id: string) => void;
-  addTaskComment: (taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
-  bulkAddTasks: (projectId: string, titles: string[]) => void;
-  reorderTasks: (projectId: string, taskIds: string[]) => void;
+  deleteTask: (id: string) => Promise<void>;
+  addTaskComment: (taskId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => Promise<void>;
+  bulkAddTasks: (projectId: string, titles: string[]) => Promise<void>;
+  reorderTasks: (projectId: string, taskIds: string[]) => Promise<void>;
 
   // Project actions
-  addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => void;
-  updateProject: (id: string, updates: Partial<Project>) => void;
-  updateUser: (id: string, updates: Partial<User>) => void;
-  addProjectComment: (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => void;
+  addProject: (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  updateProject: (id: string, updates: Partial<Project>) => Promise<void>;
+  updateUser: (id: string, updates: Partial<User>) => Promise<void>;
+  addProjectComment: (projectId: string, comment: Omit<Comment, 'id' | 'createdAt'>) => Promise<void>;
   updateSettings: (updates: Partial<AppSettings>) => void;
-  approveUser: (userId: string) => void;
-  rejectUser: (userId: string) => void;
-  addUser: (user: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => void;
-  addTaskLog: (taskId: string, log: { content: string; hoursSpent: number }) => void;
+  approveUser: (userId: string) => Promise<void>;
+  rejectUser: (userId: string) => Promise<void>;
+  addUser: (user: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => Promise<void>;
+  addTaskLog: (taskId: string, log: { content: string; hoursSpent: number }) => Promise<void>;
+  addDepartment: (name: string) => Promise<void>;
 }
 
 export type AppContextType = AppState & AppActions;
@@ -64,6 +66,7 @@ export const initialState: AppState = {
   selectedTaskId: null,
   selectedProjectId: null,
   selectedUserId: null,
+  departments: ['Mol Bio', 'AI', 'Bioinfo', 'Leadership'],
   settings: {
     // Accountability
     autoEscalate: true,

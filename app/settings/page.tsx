@@ -28,12 +28,15 @@ import {
   Calendar,
   BarChart3,
   History,
-  Search
+  Search,
+  Plus,
+  Building2
 } from "lucide-react"
 import { useEffect } from "react"
 
 export default function SettingsPage() {
-  const { currentUser, setTheme, theme, settings, updateSettings } = useApp()
+  const { currentUser, setTheme, theme, settings, updateSettings, departments, addDepartment } = useApp()
+  const [newDeptName, setNewDeptName] = useState("")
   
   // Array helpers for sliders (since store stores numbers, and slider wants array)
   const escalationThreshold = [settings.escalationThreshold]
@@ -79,7 +82,7 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-auto p-6">
         <Tabs defaultValue="accountability" className="space-y-6">
-          <TabsList className="grid w-full max-w-2xl grid-cols-5">
+          <TabsList className="grid w-full max-w-3xl grid-cols-7">
             <TabsTrigger value="accountability" className="gap-2">
               <Target className="h-4 w-4" />
               Accountability
@@ -91,6 +94,10 @@ export default function SettingsPage() {
             <TabsTrigger value="team" className="gap-2">
               <Users className="h-4 w-4" />
               Team
+            </TabsTrigger>
+            <TabsTrigger value="organization" className="gap-2">
+              <Building2 className="h-4 w-4" />
+              Organization
             </TabsTrigger>
             <TabsTrigger value="workflow" className="gap-2">
               <Zap className="h-4 w-4" />
@@ -465,6 +472,70 @@ export default function SettingsPage() {
                     </p>
                   </div>
                   <Switch checked={crossFunctionalVisibility} onCheckedChange={toggle('crossFunctionalVisibility')} />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          {/* Organization Settings */}
+          <TabsContent value="organization" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="h-5 w-5 text-blue-500" />
+                  Department Management
+                </CardTitle>
+                <CardDescription>
+                  Define and scale your research departments
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex flex-col gap-4">
+                  <Label htmlFor="new-dept">Add New Department</Label>
+                  <div className="flex gap-2">
+                    <Input 
+                      id="new-dept"
+                      placeholder="e.g. Genomics" 
+                      value={newDeptName}
+                      onChange={(e) => setNewDeptName(e.target.value)}
+                      className="max-w-md"
+                    />
+                    <Button 
+                      className="gap-2" 
+                      onClick={async () => {
+                        if (newDeptName.trim()) {
+                          await addDepartment(newDeptName.trim());
+                          setNewDeptName("");
+                        }
+                      }}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted/50 border-b">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-medium">Department Name</th>
+                        <th className="px-4 py-3 text-right font-medium">Auto-generated Label</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-muted-foreground">
+                      {departments.map((dept) => (
+                        <tr key={dept} className="transition-colors hover:bg-muted/30">
+                          <td className="px-4 py-3 font-medium text-foreground">{dept}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Badge variant="outline" className="font-normal">
+                              {dept}
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </CardContent>
             </Card>

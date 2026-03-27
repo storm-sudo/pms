@@ -59,7 +59,7 @@ interface ProjectCardProps {
 }
 
 function TaskRow({ task, onSelect }: { task: Task; onSelect: () => void }) {
-  const assignee = useUser(task.assigneeId);
+  const assignee = useUser(task.assigneeIds[0]);
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
   
   const today = new Date().toISOString().split('T')[0];
@@ -126,15 +126,17 @@ function ProjectCard({ project }: ProjectCardProps) {
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
-  const handleAddTask = () => {
+  const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
-    addTask({
+    await addTask({
       title: newTaskTitle.trim(),
       projectId: project.id,
       priority: 'medium' as Priority,
       status: 'todo',
+      assigneeIds: [],
       subtasks: [],
       comments: [],
+      logs: [],
       tags: [],
       order: tasks.length,
     });
@@ -147,10 +149,10 @@ function ProjectCard({ project }: ProjectCardProps) {
     }
   };
 
-  const handleBulkAdd = () => {
+  const handleBulkAdd = async () => {
     const titles = bulkTasks.split('\n').filter(t => t.trim());
     if (titles.length > 0) {
-      bulkAddTasks(project.id, titles);
+      await bulkAddTasks(project.id, titles);
       setBulkTasks('');
       setShowBulkAdd(false);
     }
@@ -323,7 +325,7 @@ function ProjectCard({ project }: ProjectCardProps) {
 
 export default function ProjectsPage() {
   const projects = useProjects();
-  const { addProject, updateProject, currentUser } = useApp();
+  const { addProject, updateProject, currentUser, departments } = useApp();
   const { toast } = useToast();
   const users = useUsers();
   const [filter, setFilter] = useState<'all' | 'active' | 'at-risk' | 'completed'>('all');
@@ -363,7 +365,7 @@ export default function ProjectsPage() {
     setEditingProject(null);
   };
 
-  const handleSaveProject = () => {
+  const handleSaveProject = async () => {
     if (!newProjectName.trim()) return;
 
     if (editingProject && newProjectStatus === 'completed' && currentUser.role !== 'admin') {
@@ -376,7 +378,7 @@ export default function ProjectsPage() {
     }
 
     if (editingProject) {
-      updateProject(editingProject.id, {
+      await updateProject(editingProject.id, {
         name: newProjectName.trim(),
         description: newProjectDesc.trim() || undefined,
         department: newProjectDept,
@@ -385,7 +387,7 @@ export default function ProjectsPage() {
         dueDate: newProjectDueDate || undefined,
       });
     } else {
-      addProject({
+      await addProject({
         name: newProjectName.trim(),
         description: newProjectDesc.trim() || undefined,
         department: newProjectDept,
@@ -456,10 +458,9 @@ export default function ProjectsPage() {
                 <Select value={newProjectDept} onValueChange={(v) => setNewProjectDept(v as Department)}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Mol Bio">Mol Bio</SelectItem>
-                    <SelectItem value="AI">AI</SelectItem>
-                    <SelectItem value="Bioinfo">Bioinfo</SelectItem>
-                    <SelectItem value="Leadership">Leadership</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>{dept}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

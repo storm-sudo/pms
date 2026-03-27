@@ -41,7 +41,7 @@ import { statusColors } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 
 export default function AdminTasksPage() {
-  const { updateTask, projects, addTask, notifyAssignees } = useApp();
+  const { updateTask, projects, addTask, notifyAssignees, departments } = useApp();
   const tasks = useTasks();
   const users = useUsers();
   const isAdmin = useIsAdmin();
@@ -79,7 +79,7 @@ export default function AdminTasksPage() {
 
   const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
 
-  const toggleAssignee = (taskId: string, userId: string) => {
+  const toggleAssignee = async (taskId: string, userId: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
@@ -87,29 +87,29 @@ export default function AdminTasksPage() {
       ? task.assigneeIds.filter(id => id !== userId)
       : [...task.assigneeIds, userId];
     
-    updateTask(taskId, { assigneeIds: newIds }, { silent: true });
+    await updateTask(taskId, { assigneeIds: newIds }, { silent: true });
   };
 
-  const assignTeam = (taskId: string, department: string) => {
+  const assignTeam = async (taskId: string, department: string) => {
     const task = tasks.find(t => t.id === taskId);
     if (!task) return;
 
     const teamMembers = users.filter(u => u.department === department).map(u => u.id);
     const uniqueIds = Array.from(new Set([...task.assigneeIds, ...teamMembers]));
     
-    updateTask(taskId, { assigneeIds: uniqueIds }, { silent: true });
+    await updateTask(taskId, { assigneeIds: uniqueIds }, { silent: true });
     toast({ 
       title: "Team Assigned", 
       description: `Added all members from ${department} to "${task.title}".` 
     });
   };
 
-  const clearAssignees = (taskId: string) => {
-    updateTask(taskId, { assigneeIds: [] });
+  const clearAssignees = async (taskId: string) => {
+    await updateTask(taskId, { assigneeIds: [] });
     toast({ title: "Assignees Cleared", description: "All members removed from the task." });
   };
 
-  const handleCreateTask = () => {
+  const handleCreateTask = async () => {
     if (!newTaskTitle.trim()) return;
     const projectId = newTaskProjectId || projects[0]?.id;
     if (!projectId) {
@@ -117,7 +117,7 @@ export default function AdminTasksPage() {
       return;
     }
 
-    addTask({
+    await addTask({
       title: newTaskTitle.trim(),
       projectId,
       priority: 'medium',
@@ -288,7 +288,7 @@ export default function AdminTasksPage() {
                      <h4 className="text-xs font-black uppercase tracking-[0.2em]">Bulk Team Assignment</h4>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    {['AI', 'Mol Bio', 'Bioinfo', 'Leadership'].map(dept => (
+                    {departments.map(dept => (
                       <Button 
                         key={dept}
                         variant="outline" 

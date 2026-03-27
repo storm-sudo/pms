@@ -69,7 +69,7 @@ export function TaskDetailPanel() {
 
   const assignees = users.filter(u => task.assigneeIds.includes(u.id));
 
-  const handleStatusChange = (status: TaskStatus) => {
+  const handleStatusChange = async (status: TaskStatus) => {
     if (status === 'done') {
       if (settings.requireReviewer && !task.approvedBy && currentUser.role !== 'admin') {
         toast({
@@ -89,13 +89,13 @@ export function TaskDetailPanel() {
       });
       return;
     }
-    updateTask(task.id, { 
+    await updateTask(task.id, { 
       status,
       completedDate: status === 'done' ? new Date().toISOString().split('T')[0] : undefined
     });
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     const isAdmin = currentUser.role === 'admin';
     const isLead = project?.leadId === currentUser.id;
     const isReviewer = task.reviewerId === currentUser.id;
@@ -109,7 +109,7 @@ export function TaskDetailPanel() {
       return;
     }
 
-    updateTask(task.id, { 
+    await updateTask(task.id, { 
       approvedBy: currentUser.id,
       status: 'done',
       completedDate: new Date().toISOString().split('T')[0]
@@ -120,13 +120,13 @@ export function TaskDetailPanel() {
     });
   };
 
-  const handlePriorityChange = (priority: Priority) => {
-    updateTask(task.id, { priority });
+  const handlePriorityChange = async (priority: Priority) => {
+    await updateTask(task.id, { priority });
   };
 
-  const toggleAssignee = (userId: string) => {
+  const toggleAssignee = async (userId: string) => {
     if (userId === 'unassigned') {
-      updateTask(task.id, { assigneeIds: [] });
+      await updateTask(task.id, { assigneeIds: [] });
       return;
     }
     
@@ -134,13 +134,13 @@ export function TaskDetailPanel() {
       ? task.assigneeIds.filter(id => id !== userId)
       : [...task.assigneeIds, userId];
     
-    updateTask(task.id, { assigneeIds: newIds }, { silent: true });
+    await updateTask(task.id, { assigneeIds: newIds }, { silent: true });
   };
   
-  const assignTeam = (department: string) => {
+  const assignTeam = async (department: string) => {
     const teamMembers = users.filter(u => u.department === department).map(u => u.id);
     const uniqueIds = Array.from(new Set([...task.assigneeIds, ...teamMembers]));
-    updateTask(task.id, { assigneeIds: uniqueIds }, { silent: true });
+    await updateTask(task.id, { assigneeIds: uniqueIds }, { silent: true });
     toast({ 
       title: "Team Assigned", 
       description: `Added all members from ${department} to this task.` 
@@ -154,9 +154,9 @@ export function TaskDetailPanel() {
     setNotifying(false);
   };
 
-  const handleAddLog = () => {
+  const handleAddLog = async () => {
     if (!logContent.trim() || !logHours) return;
-    addTaskLog(task.id, {
+    await addTaskLog(task.id, {
       content: logContent.trim(),
       hoursSpent: parseFloat(logHours)
     });
@@ -166,7 +166,7 @@ export function TaskDetailPanel() {
     toast({ title: "Progress Logged", description: "Your update has been stored." });
   };
 
-  const handleAddSubtask = () => {
+  const handleAddSubtask = async () => {
     if (!newSubtask.trim()) return;
     const subtask: Subtask = {
       id: `s${Math.random().toString(36).substring(2, 9)}`,
@@ -174,11 +174,11 @@ export function TaskDetailPanel() {
       completed: false,
       assigneeIds: [],
     };
-    updateTask(task.id, { subtasks: [...task.subtasks, subtask] });
+    await updateTask(task.id, { subtasks: [...task.subtasks, subtask] });
     setNewSubtask('');
   };
 
-  const handleBulkAddSubtasks = () => {
+  const handleBulkAddSubtasks = async () => {
     const titles = bulkSubtasks.split('\n').filter(t => t.trim());
     if (titles.length === 0) return;
     
@@ -189,12 +189,12 @@ export function TaskDetailPanel() {
       assigneeIds: [],
     }));
     
-    updateTask(task.id, { subtasks: [...task.subtasks, ...newSubtasks] });
+    await updateTask(task.id, { subtasks: [...task.subtasks, ...newSubtasks] });
     setBulkSubtasks('');
     setShowBulkAdd(false);
   };
 
-  const handleToggleSubtask = (subtaskId: string) => {
+  const handleToggleSubtask = async (subtaskId: string) => {
     const isLead = project?.leadId === currentUser.id;
     const isAssignee = task.assigneeIds.includes(currentUser.id);
     const isAdmin = currentUser.role === 'admin';
@@ -216,24 +216,24 @@ export function TaskDetailPanel() {
         ? { ...s, completed: !s.completed, completedDate: !s.completed ? new Date().toISOString().split('T')[0] : undefined }
         : s
     );
-    updateTask(task.id, { subtasks });
+    await updateTask(task.id, { subtasks });
   };
 
-  const handleDeleteSubtask = (subtaskId: string) => {
-    updateTask(task.id, { subtasks: task.subtasks.filter(s => s.id !== subtaskId) });
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    await updateTask(task.id, { subtasks: task.subtasks.filter(s => s.id !== subtaskId) });
   };
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (!newComment.trim()) return;
-    addTaskComment(task.id, {
+    await addTaskComment(task.id, {
       userId: currentUser.id,
       content: newComment.trim(),
     });
     setNewComment('');
   };
 
-  const handleDeleteTask = () => {
-    deleteTask(task.id);
+  const handleDeleteTask = async () => {
+    await deleteTask(task.id);
     setSelectedTaskId(null);
   };
 
