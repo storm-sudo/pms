@@ -45,7 +45,11 @@ export const supabaseService = {
       memberIds: p.member_ids || [],
       externalLinks: p.external_links || [],
       createdAt: p.created_at,
-      updatedAt: p.updated_at
+      updatedAt: p.updated_at,
+      comments: p.comments || [],
+      milestones: p.milestones || [],
+      tags: p.tags || [],
+      progress: p.progress || 0
     }));
   },
 
@@ -91,12 +95,15 @@ export const supabaseService = {
       projectId: t.project_id,
       assigneeIds: t.assignee_ids || [],
       dueDate: t.due_date,
+      startDate: t.start_date,
+      completedDate: t.completed_date,
       order: t.task_order,
       createdAt: t.created_at,
       updatedAt: t.updated_at,
       subtasks: t.subtasks || [],
       comments: t.comments || [],
-      logs: t.logs || []
+      logs: t.logs || [],
+      tags: t.tags || []
     }));
   },
 

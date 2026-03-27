@@ -17,6 +17,47 @@ function generateId() {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
 
+  // ── Mapping Helpers ──
+  const mapProject = (p: any): Project => ({
+    ...p,
+    dueDate: p.due_date,
+    leadId: p.lead_id,
+    memberIds: p.member_ids || [],
+    externalLinks: p.external_links || [],
+    createdAt: p.created_at,
+    updatedAt: p.updated_at,
+    comments: p.comments || [],
+    milestones: p.milestones || [],
+    tags: p.tags || [],
+    progress: p.progress || 0
+  });
+
+  const mapTask = (t: any): Task => ({
+    ...t,
+    projectId: t.project_id,
+    assigneeIds: t.assignee_ids || [],
+    dueDate: t.due_date,
+    startDate: t.start_date,
+    completedDate: t.completed_date,
+    order: t.task_order,
+    createdAt: t.created_at,
+    updatedAt: t.updated_at,
+    subtasks: t.subtasks || [],
+    comments: t.comments || [],
+    logs: t.logs || [],
+    tags: t.tags || []
+  });
+
+  const mapProfile = (p: any): User => ({
+    ...p,
+    joinedDate: p.joined_date,
+    lastActive: p.last_active,
+    avatar: p.avatar_url,
+    approvedBy: p.approved_by,
+    approvedAt: p.approved_at,
+    workload: p.workload || { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
+  });
+
   // Initial data fetch and real-time setup
   useEffect(() => {
     const fetchData = async () => {
@@ -68,15 +109,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
               dueDate: t.due_date,
               startDate: t.start_date,
               completedDate: t.completed_date,
+              reviewerId: t.reviewer_id,
+              approvedBy: t.approved_by,
+              order: t.task_order,
+              createdAt: t.created_at,
+              updatedAt: t.updated_at,
+              // Initialize required non-column fields
               subtasks: t.subtasks || [],
               comments: t.comments || [],
               logs: t.logs || [],
-              reviewerId: t.reviewer_id,
-              approvedBy: t.approved_by,
-              createdAt: t.created_at,
-              updatedAt: t.updated_at
+              tags: t.tags || []
             };
-            if (payload.eventType === 'INSERT') return { ...s, tasks: [...s.tasks, mappedTask] };
+            
+            if (payload.eventType === 'INSERT') {
+              const exists = s.tasks.find(tk => tk.id === t.id);
+              if (exists) return s;
+              return { ...s, tasks: [...s.tasks, mappedTask] };
+            }
             return { ...s, tasks: s.tasks.map(task => task.id === t.id ? { ...task, ...mappedTask } : task) };
           }
           if (payload.eventType === 'DELETE') return { ...s, tasks: s.tasks.filter(t => t.id !== payload.old.id) };
@@ -89,18 +138,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, (payload) => {
         setState(s => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const p = payload.new as any;
-            const mappedProject: Project = {
-              ...p,
-              dueDate: p.due_date,
-              leadId: p.lead_id,
-              memberIds: p.member_ids || [],
-              externalLinks: p.external_links || [],
-              createdAt: p.created_at,
-              updatedAt: p.updated_at
-            };
-            if (payload.eventType === 'INSERT') return { ...s, projects: [...s.projects, mappedProject] };
-            return { ...s, projects: s.projects.map(project => project.id === p.id ? { ...project, ...mappedProject } : project) };
+            const mappedProject = mapProject(payload.new);
+            
+            if (payload.eventType === 'INSERT') {
+              const exists = s.projects.find(proj => proj.id === mappedProject.id);
+              if (exists) return s;
+              return { ...s, projects: [...s.projects, mappedProject] };
+            }
+            return { ...s, projects: s.projects.map(project => project.id === mappedProject.id ? { ...project, ...mappedProject } : project) };
           }
           if (payload.eventType === 'DELETE') return { ...s, projects: s.projects.filter(p => p.id !== payload.old.id) };
           return s;
@@ -112,19 +157,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload) => {
         setState(s => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            const p = payload.new as any;
-            const mappedUser: User = {
-              ...p,
-              joinedDate: p.joined_date,
-              lastActive: p.last_active,
-              avatar: p.avatar_url,
-              approvedBy: p.approved_by,
-              approvedAt: p.approved_at,
-              workload: p.workload || { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
-            };
-            
-            if (payload.eventType === 'INSERT') return { ...s, users: [...s.users, mappedUser] };
-            return { ...s, users: s.users.map(u => u.id === p.id ? { ...u, ...mappedUser } : u) };
+            const mappedProfile = mapProfile(payload.new);
+            if (payload.eventType === 'INSERT') return { ...s, users: [...s.users, mappedProfile] };
+            return { ...s, users: s.users.map(u => u.id === mappedProfile.id ? mappedProfile : u) };
           }
           if (payload.eventType === 'DELETE') return { ...s, users: s.users.filter(u => u.id !== payload.old.id) };
           return s;
@@ -232,7 +267,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Task actions
   const addTask = useCallback(async (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>, options?: { silent?: boolean }) => {
     try {
-      const newTask = await supabaseService.addTask({
+      const dbTask = await supabaseService.addTask({
         ...task,
         subtasks: [],
         comments: [],
@@ -240,8 +275,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         summary: '',
         order: 0,
       });
-      
+
+      const newTask = mapTask(dbTask);
       const silent = options?.silent ?? false;
+
+      // Manually update state for immediate feedback
+      setState(s => {
+        const exists = s.tasks.find(tk => tk.id === newTask.id);
+        if (exists) return s;
+        return { ...s, tasks: [...s.tasks, newTask] };
+      });
 
       // Notify new assignees
       if (newTask.assigneeIds.length > 0 && !silent) {
@@ -254,7 +297,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
       toast({
         title: 'Task Created',
-        description: `"${newTask.title}" has been added successfully.`,
+        description: `"${newTask.title}" has been added successfully. It is now visible in your dashboard.`,
       });
     } catch (error) {
       console.error('Error adding task:', error);
@@ -330,16 +373,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const maxOrder = projectTasks.length > 0 ? Math.max(...projectTasks.map(t => t.order)) : 0;
 
       for (let i = 0; i < titles.length; i++) {
-        await supabaseService.addTask({
+        const dbTask = await supabaseService.addTask({
           projectId,
           title: titles[i].trim(),
           priority: 'medium',
           status: 'todo',
           order: maxOrder + i + 1,
         });
+
+        const newTask = mapTask(dbTask);
+
+        // Immediate state update for each task in bulk
+        setState(s => {
+          const exists = s.tasks.find(tk => tk.id === newTask.id);
+          if (exists) return s;
+          return { ...s, tasks: [...s.tasks, newTask] };
+        });
       }
-    } catch (error) {
+      
+      toast({ 
+        title: 'Bulk Tasks Added', 
+        description: `Successfully added ${titles.length} tasks to the project.` 
+      });
+    } catch (error: any) {
       console.error('Error bulk adding tasks:', error);
+      toast({ 
+        title: 'Error in Bulk Add', 
+        description: error.message || 'Some tasks failed to reach the database.', 
+        variant: 'destructive' 
+      });
     }
   }, [state.tasks]);
 
@@ -358,11 +420,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Project actions
   const addProject = useCallback(async (project: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>) => {
     try {
-      await supabaseService.addProject(project);
-      toast({ title: 'Project Created', description: `"${project.name}" has been added successfully.` });
-    } catch (error) {
+      const p = await supabaseService.addProject(project);
+      
+      // Map the returned raw DB row
+      const newProject: Project = {
+        ...p,
+        dueDate: p.due_date,
+        leadId: p.lead_id,
+        memberIds: p.member_ids || [],
+        externalLinks: p.external_links || [],
+        createdAt: p.created_at,
+        updatedAt: p.updated_at,
+        comments: [],
+        milestones: [],
+        tags: [],
+        progress: p.progress || 0
+      };
+
+      // Immediate state update (bypass real-time lag)
+      setState(s => {
+        const exists = s.projects.find(proj => proj.id === newProject.id);
+        if (exists) return s;
+        return { ...s, projects: [...s.projects, newProject] };
+      });
+
+      toast({ 
+        title: 'Project Created', 
+        description: `"${project.name}" has been added successfully. It should appear in your list immediately.` 
+      });
+    } catch (error: any) {
       console.error('Error adding project:', error);
-      toast({ title: 'Error', description: 'Failed to create project.', variant: 'destructive' });
+      toast({ 
+        title: 'Error Creating Project', 
+        description: error.message || 'The database rejected the project creation request.', 
+        variant: 'destructive' 
+      });
     }
   }, []);
 
@@ -404,11 +496,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const approveUser = useCallback(async (userId: string) => {
     try {
-      await supabaseService.updateProfile(userId, { 
-        status: 'approved', 
+      const updates = { 
+        status: 'approved' as const, 
         approved_by: state.currentUser.id, 
         approved_at: new Date().toISOString() 
-      });
+      };
+      
+      await supabaseService.updateProfile(userId, updates);
+      
+      // Manual state update
+      setState(s => ({
+        ...s,
+        users: s.users.map(u => u.id === userId ? { 
+          ...u, 
+          status: 'approved', 
+          approvedBy: state.currentUser.id, 
+          approvedAt: updates.approved_at 
+        } : u)
+      }));
       
       const user = state.users.find(u => u.id === userId);
       if (user) {

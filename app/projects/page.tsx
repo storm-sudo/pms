@@ -220,18 +220,27 @@ function ProjectCard({ project }: ProjectCardProps) {
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              {/* Member Avatars */}
+              {/* Project Lead & Member Avatars */}
               <div className="flex -space-x-2">
-                {memberAvatars.map((user) => (
+                {lead && (
+                  <div title={`Lead: ${lead.name}`}>
+                    <Avatar className="h-7 w-7 border-2 border-amber-500/50 shadow-sm">
+                      <AvatarFallback className="text-[10px] bg-amber-500/10 text-amber-600 font-bold">
+                        {getInitials(lead.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </div>
+                )}
+                {memberAvatars.filter(u => u.id !== project.leadId).map((user) => (
                   <Avatar key={user!.id} className="h-7 w-7 border-2 border-background">
                     <AvatarFallback className="text-[10px]">
                       {getInitials(user!.name)}
                     </AvatarFallback>
                   </Avatar>
                 ))}
-                {project.memberIds.length > 3 && (
+                {project.memberIds.filter(id => id !== project.leadId).length > 3 && (
                   <div className="h-7 w-7 rounded-full bg-muted flex items-center justify-center text-xs border-2 border-background">
-                    +{project.memberIds.length - 3}
+                    +{project.memberIds.filter(id => id !== project.leadId).length - 3}
                   </div>
                 )}
               </div>
