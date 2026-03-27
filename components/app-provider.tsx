@@ -5,6 +5,7 @@ import { AppContext, AppState, initialState } from '@/lib/store';
 import { User, Project, Task, Comment, AppSettings, TaskStatus, Priority } from '@/lib/types';
 import { logoutUser, getSession, getLoggedInUser, registerUserByAdmin } from '@/lib/auth';
 import { toast } from '@/components/ui/use-toast';
+import { toast as sonner } from 'sonner';
 import { notificationService } from '@/lib/notifications';
 
 function generateId() {
@@ -215,8 +216,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     if (task && project && assignees.length > 0) {
       notificationService.notifyTaskAssignment(task, project, assignees, state.currentUser);
-      toast({
-        title: 'Notifications Sent',
+      sonner.success('Email sent to employees', {
         description: `Alerted ${assignees.length} members about "${task.title}".`,
       });
     }
