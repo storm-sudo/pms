@@ -53,7 +53,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { departmentColors, priorityColors, projectStatusColors, statusColors } from '@/lib/mock-data';
-import { Project, Task, Priority, Department, ProjectStatus } from '@/lib/types';
+import { User, Project, Task, Priority, Department, ProjectStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 interface ProjectCardProps {
@@ -161,7 +161,7 @@ function ProjectCard({ project }: ProjectCardProps) {
   };
 
   const completedTasks = tasks.filter(t => t.status === 'done').length;
-  const memberAvatars = project.memberIds.slice(0, 3).map(id => users.find(u => u.id === id)).filter(Boolean);
+  const memberAvatars = project.memberIds.slice(0, 3).map(id => users.find(u => u.id === id)).filter((u): u is User => !!u);
 
   const getDaysRemaining = () => {
     if (!project.dueDate) return null;
@@ -231,7 +231,7 @@ function ProjectCard({ project }: ProjectCardProps) {
                     </Avatar>
                   </div>
                 )}
-                {memberAvatars.filter(u => u.id !== project.leadId).map((user) => (
+                {memberAvatars.filter((u): u is User => !!u && u.id !== project.leadId).map((user) => (
                   <Avatar key={user!.id} className="h-7 w-7 border-2 border-background">
                     <AvatarFallback className="text-[10px]">
                       {getInitials(user!.name)}
