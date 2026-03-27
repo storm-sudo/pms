@@ -30,35 +30,36 @@ export function ReminderChecker() {
 
                 if (!isOverdue && !isDueToday) continue;
 
-                // Find assignee and supervisor/lead
-                const assignee = users.find(u => u.id === task.assigneeId);
                 const project = projects.find(p => p.id === task.projectId);
                 const supervisor = project ? users.find(u => u.id === project.leadId) : null;
 
-                if (!assignee) continue;
+                for (const userId of task.assigneeIds) {
+                    const assignee = users.find(u => u.id === userId);
+                    if (!assignee) continue;
 
-                const emailData = {
-                    taskTitle: task.title,
-                    dueDate: task.dueDate,
-                    assigneeEmail: assignee.email,
-                    assigneeName: assignee.name,
-                    supervisorEmail: supervisor?.email || '',
-                    supervisorName: supervisor?.name || '',
-                    type: isOverdue ? 'overdue' : 'due-date'
-                };
+                    const emailData = {
+                        taskTitle: task.title,
+                        dueDate: task.dueDate,
+                        assigneeEmail: assignee.email,
+                        assigneeName: assignee.name,
+                        supervisorEmail: supervisor?.email || '',
+                        supervisorName: supervisor?.name || '',
+                        type: isOverdue ? 'overdue' : 'due-date'
+                    };
 
-                try {
-                    const res = await fetch('/api/notify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(emailData)
-                    });
-                    const result = await res.json();
-                    if (result.success) {
-                        emailsSentCount++;
+                    try {
+                        const res = await fetch('/api/notify', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(emailData)
+                        });
+                        const result = await res.json();
+                        if (result.success) {
+                            emailsSentCount++;
+                        }
+                    } catch (error) {
+                        console.error(`[Reminders] Failed to send email for task: ${task.title} to ${assignee.name}`, error);
                     }
-                } catch (error) {
-                    console.error(`[Reminders] Failed to send email for task: ${task.title}`, error);
                 }
             }
 
@@ -69,5 +70,5 @@ export function ReminderChecker() {
         checkAndSendReminders();
     }, [tasks, projects, users, isLoggedIn]);
 
-    return null; // This component doesn't render anything visually
+    return null;
 }
