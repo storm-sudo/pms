@@ -1,6 +1,5 @@
 import { Task, Project, User } from './types';
 import { toast } from 'sonner';
-import { supabaseService } from './supabase-service';
 
 export type NotificationEventType = 
   | 'approval_request_received'
@@ -43,14 +42,17 @@ class NotificationService {
     }
   ) {
     try {
+      // Lazy load supabaseService to avoid circular dependency
+      const { supabaseService } = await import('./supabase-service');
+
       // 1. Fetch recipient profile
       const users = await supabaseService.getProfiles();
-      const recipient = users.find(u => u.id === recipientId);
+      const recipient = users.find((u: User) => u.id === recipientId);
       if (!recipient) return;
 
       // 2. Check notification preferences
       const prefs = await supabaseService.getNotificationPreferences(recipientId);
-      const pref = prefs.find(p => p.eventType === eventType);
+      const pref = prefs.find((p: any) => p.eventType === eventType);
       
       // If preference exists and is disabled, skip
       if (pref && !pref.enabled) return;
@@ -73,7 +75,8 @@ class NotificationService {
         'stakeholder_feedback_received',
         'account_registered',
         'account_approved',
-        'account_created'
+        'account_created',
+        'task_status_changed'
       ];
 
       const deliveryMode = instantEvents.includes(eventType) ? 'instant' : 'digest';
@@ -87,30 +90,85 @@ class NotificationService {
         body = body || template.text;
       }
 
-      // 6. Action: Send immediately if instant, or just log if digest
-      // Note: The Edge Function will query the log to send digests later.
+      // 6. Action: Send immediately if instant
       if (deliveryMode === 'instant') {
-        await this.dispatchEmail(recipient.email, subject!, body!, html!);
+        const channels = pref?.channels || ['email'];
+        
+        if (channels.includes('email')) {
+          await this.dispatchEmail(recipient.email, subject!, body!, html!);
+        }
+        
+        if (channels.includes('slack')) {
+          await this.dispatchSlack(eventType, payload.data, recipient);
+        }
+        
+        if (channels.includes('discord')) {
+          await this.dispatchDiscord(eventType, payload.data, recipient);
+        }
       }
 
-      // 7. Log the notification
-      await supabaseService.logNotification(
-        recipientId,
-        eventType,
-        payload.entityType,
-        payload.entityId,
-        subject!,
-        deliveryMode
-      );
+      // 7. Log the notification (one entry per channel)
+      const activeChannels = deliveryMode === 'instant' ? (pref?.channels || ['email']) : ['email'];
+      for (const channel of activeChannels) {
+        await supabaseService.logNotification(
+          recipientId,
+          eventType,
+          payload.entityType,
+          payload.entityId,
+          subject!,
+          deliveryMode,
+          channel
+        );
+      }
 
     } catch (error) {
       console.error(`Failed to send ${eventType} notification:`, error);
     }
   }
 
+  private async dispatchSlack(eventType: NotificationEventType, data: any, recipient: User) {
+    try {
+      const response = await globalThis.fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/dispatch-webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          platform: 'slack',
+          event_type: eventType,
+          payload: data
+        }),
+      });
+      if (!response.ok) console.error('Slack dispatch failed');
+    } catch (err) {
+      console.error('Slack Dispatch Error:', err);
+    }
+  }
+
+  private async dispatchDiscord(eventType: NotificationEventType, data: any, recipient: User) {
+    try {
+      const response = await globalThis.fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/dispatch-webhook`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          platform: 'discord',
+          event_type: eventType,
+          payload: data
+        }),
+      });
+      if (!response.ok) console.error('Discord dispatch failed');
+    } catch (err) {
+      console.error('Discord Dispatch Error:', err);
+    }
+  }
+
   private async dispatchEmail(to: string, subject: string, body: string, html: string) {
     try {
-      const response = await fetch('/api/send', {
+      const response = await globalThis.fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -137,7 +195,8 @@ class NotificationService {
     let title = '';
     let content = '';
     let ctaText = 'View in Synapse';
-    let ctaUrl = `${window.location.origin}/`;
+    const origin = typeof window !== 'undefined' ? window.location.origin : 'https://synapse.nucleovir.com';
+    let ctaUrl = `${origin}/`;
     let subject = `SYNAPSE: ${eventType.replace(/_/g, ' ').toUpperCase()}`;
 
     switch (eventType) {
@@ -148,7 +207,7 @@ class NotificationService {
                    <b>Project:</b> ${data.projectName}<br>
                    <b>Requested By:</b> ${data.requesterName}`;
         ctaText = 'Review Request';
-        ctaUrl = `${window.location.origin}/workflow`;
+        ctaUrl = `${origin}/workflow`;
         subject = `SYNAPSE: Approval Required - ${data.title}`;
         break;
 
@@ -158,7 +217,7 @@ class NotificationService {
                    Your request for "${data.title}" has been <b class="highlight">${data.status.toUpperCase()}</b> by ${data.approverName}.<br><br>
                    ${data.comment ? `<b>Supervisor Note:</b> ${data.comment}` : ''}`;
         ctaText = 'View Details';
-        ctaUrl = `${window.location.origin}/tasks`;
+        ctaUrl = `${origin}/tasks`;
         subject = `SYNAPSE: Request ${data.status.toUpperCase()} - ${data.title}`;
         break;
 
@@ -168,7 +227,7 @@ class NotificationService {
                    Researcher <span class="highlight">${data.userName}</span> has exceeded their defined weekly capacity (${data.percentage}%).<br><br>
                    Please review laboratory throughput in the control center.`;
         ctaText = 'Rebalance Workload';
-        ctaUrl = `${window.location.origin}/admin/tasks`;
+        ctaUrl = `${origin}/admin/tasks`;
         subject = `CRITICAL: Capacity Overload - ${data.userName}`;
         break;
 
@@ -178,7 +237,7 @@ class NotificationService {
                    New feedback has been posted by a stakeholder on the clinical report: <span class="highlight">${data.reportName}</span>.<br><br>
                    <b>Comment:</b> "${data.comment}"`;
         ctaText = 'Review Feedback';
-        ctaUrl = `${window.location.origin}/projects/${data.projectId}/documents`;
+        ctaUrl = `${origin}/projects/${data.projectId}/documents`;
         subject = `SYNAPSE: Stakeholder Feedback Received`;
         break;
 
@@ -188,10 +247,19 @@ class NotificationService {
                    A new clinical report or research document has been published in the portal: <span class="highlight">${data.docName}</span>.<br><br>
                    <b>Project:</b> ${data.projectName}`;
         ctaText = 'View in Portal';
-        ctaUrl = `${window.location.origin}/portal/reports`;
+        ctaUrl = `${origin}/portal/reports`;
         subject = `SYNAPSE: New Publication Released - ${data.projectName}`;
         break;
 
+      case 'task_status_changed':
+        title = 'Task Status Update';
+        content = `Dear <span class="highlight">${firstName}</span>,<br><br>
+                   The status of laboratory task "${data.title}" has been updated to <b class="highlight">${data.status.toUpperCase()}</b>.`;
+        ctaText = 'View Task';
+        ctaUrl = `${origin}/workflow`;
+        subject = `SYNAPSE: Task ${data.status.toUpperCase()} - ${data.title}`;
+        break;
+      
       case 'account_approved':
         title = 'Account Approved';
         content = `Dear <span class="highlight">${firstName}</span>,<br><br>

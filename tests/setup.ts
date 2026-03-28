@@ -1,7 +1,6 @@
 import '@testing-library/jest-dom'
 import { vi, beforeAll, afterEach } from 'vitest'
 import { render } from '@testing-library/react'
-import { AppProvider } from '@/components/app-provider'
 import React from 'react'
 
 // 1. Mock Supabase
@@ -78,13 +77,13 @@ vi.mock('@/components/ui/use-toast', () => ({
 }))
 
 // 5. Global renderWithProviders
-export function renderWithProviders(ui: React.ReactElement) {
-  return render(
-    <AppProvider>
-      {ui}
-    </AppProvider>
-  )
-}
+// export function renderWithProviders(ui: React.ReactElement) {
+//   return render(
+//     <AppProvider>
+//       {ui}
+//     </AppProvider>
+//   )
+// }
 
 afterEach(() => {
   vi.clearAllMocks()

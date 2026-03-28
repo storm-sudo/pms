@@ -315,6 +315,88 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            {/* Admin Integrations Panel */}
+            <Card className="border-blue-500/20 bg-blue-50/10 shadow-sm transition-all hover:shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-blue-600" />
+                  Laboratory Webhooks (Admin Only)
+                </CardTitle>
+                <CardDescription>
+                  Configure medical-grade webhook endpoints for Slack and Discord. These URLs are secured via server-side Edge Functions.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Slack Status</Label>
+                      <Badge variant="outline" className="text-[10px] h-4">SECURED</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Input 
+                            type="password" 
+                            placeholder="Slack Webhook URL (env: SLACK_WEBHOOK_URL)" 
+                            value="••••••••••••••••" 
+                            disabled 
+                            className="bg-accent/20"
+                        />
+                        <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-[10px] uppercase tracking-tighter" onClick={async () => {
+                            const result = await fetch('/api/tasks/notifications/test', {
+                                method: 'POST',
+                                body: JSON.stringify({ platform: 'slack' }),
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (result.ok) {
+                                toast({ title: 'Test Dispatched', description: 'Clinical alert pulse sent to Slack workspace.' });
+                            } else {
+                                toast({ title: 'Dispatch Failed', description: 'Check SLACK_WEBHOOK_URL in Edge Function secrets.', variant: 'destructive' });
+                            }
+                        }}>
+                            Test Pulse
+                        </Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Discord Status</Label>
+                      <Badge variant="outline" className="text-[10px] h-4">SECURED</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Input 
+                            type="password" 
+                            placeholder="Discord Webhook URL (env: DISCORD_WEBHOOK_URL)" 
+                            value="••••••••••••••••" 
+                            disabled 
+                            className="bg-accent/20"
+                        />
+                        <Button variant="outline" size="sm" className="h-9 px-4 font-bold text-[10px] uppercase tracking-tighter" onClick={async () => {
+                            const result = await fetch('/api/tasks/notifications/test', {
+                                method: 'POST',
+                                body: JSON.stringify({ platform: 'discord' }),
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (result.ok) {
+                                toast({ title: 'Test Dispatched', description: 'Clinical alert pulse sent to Discord server.' });
+                            } else {
+                                toast({ title: 'Dispatch Failed', description: 'Check DISCORD_WEBHOOK_URL in Edge Function secrets.', variant: 'destructive' });
+                            }
+                        }}>
+                            Test Pulse
+                        </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-orange-500/5 border border-orange-500/10 p-4">
+                    <p className="text-[10px] font-bold text-orange-700 leading-relaxed uppercase tracking-tight">
+                        Security Notice: Webhook URLs are managed as encrypted secrets in the Supabase Edge Function environment. They are never exposed to the client or stored in plain-text clinical databases.
+                    </p>
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Notification Types</CardTitle>

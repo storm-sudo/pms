@@ -362,6 +362,7 @@ export interface NotificationPreference {
   eventType: string;
   enabled: boolean;
   delivery: 'instant' | 'digest' | 'both';
+  channels: string[]; // 'email' | 'slack' | 'discord'
 }
 
 export interface NotificationLog {
@@ -372,5 +373,5 @@ export interface NotificationLog {
   entityId?: string;
   subject: string;
   deliveredAt: string;
-  deliveryMode: 'instant' | 'digest';
+  deliveryMode: string; // 'email' | 'slack' | 'discord' (was 'instant' | 'digest')
 }

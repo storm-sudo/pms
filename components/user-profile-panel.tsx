@@ -19,6 +19,7 @@ import {
   Settings
 } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabaseService } from '@/lib/supabase-service';
@@ -67,35 +68,52 @@ export function UserProfilePanel() {
   const [newSkill, setNewSkill] = useState('');
 
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreference[]>([]);
+  const [wsSettings, setWsSettings] = useState<any>(null);
   const isMe = currentUser.id === user?.id;
 
   useEffect(() => {
     if (user?.id) {
         supabaseService.getNotificationPreferences(user.id).then(setNotificationPrefs);
+        supabaseService.getWorkspaceSettings().then(setWsSettings).catch(() => {});
     }
   }, [user?.id]);
 
-  const updatePreference = async (eventType: string, enabled: boolean, delivery: 'instant' | 'digest' | 'both') => {
+  const updatePreference = async (eventType: string, enabled: boolean, delivery: 'instant' | 'digest' | 'both', channels: string[] = ['email']) => {
     try {
-        await supabaseService.updateNotificationPreference(user.id, eventType, enabled, delivery);
+        if (!user) return;
+        await supabaseService.updateNotificationPreference(user.id, eventType, enabled, delivery, channels);
         setNotificationPrefs(prev => {
+            if (!user) return prev;
             const index = prev.findIndex(p => p.eventType === eventType);
             if (index >= 0) {
                 const updated = [...prev];
-                updated[index] = { ...updated[index], enabled, delivery };
+                updated[index] = { ...updated[index], enabled, delivery, channels };
                 return updated;
             }
-            return [...prev, { id: 'new', userId: user.id, eventType, enabled, delivery }];
+            return [...prev, { id: 'new', userId: user.id, eventType, enabled, delivery, channels }];
         });
     } catch (error) {
         console.error('Failed to update preference:', error);
     }
   };
 
+  const toggleChannel = (eventType: string, channel: string) => {
+    const pref = getPreference(eventType);
+    const channels = pref.channels || ['email'];
+    const newChannels = channels.includes(channel)
+        ? channels.filter(c => c !== channel)
+        : [...channels, channel];
+    
+    // Ensure at least one channel is selected if enabled
+    if (newChannels.length === 0) return;
+    updatePreference(eventType, pref.enabled, pref.delivery as any, newChannels);
+  };
+
   const getPreference = (eventType: string) => {
     return notificationPrefs.find(p => p.eventType === eventType) || {
         enabled: true,
-        delivery: ['approval_request_received', 'approval_resolved', 'researcher_overload', 'stakeholder_feedback_received'].includes(eventType) ? 'instant' : 'digest'
+        delivery: ['approval_request_received', 'approval_resolved', 'researcher_overload', 'stakeholder_feedback_received'].includes(eventType) ? 'instant' : 'digest',
+        channels: ['email']
     };
   };
 
@@ -529,26 +547,67 @@ export function UserProfilePanel() {
                        <Switch 
                          checked={current.enabled} 
                          disabled={!isMe && !isAdmin}
-                         onCheckedChange={(val) => updatePreference(pref.id, val, current.delivery as any)} 
+                         onCheckedChange={(val) => updatePreference(pref.id, val, current.delivery as any, current.channels)} 
                        />
                      </div>
+                     
                      {current.enabled && (
-                        <div className="flex items-center gap-3 pt-2 border-t border-dashed">
-                            <span className="text-[10px] font-bold uppercase text-muted-foreground">Delivery Strategy:</span>
-                            <Select 
-                                value={current.delivery} 
-                                disabled={!isMe && !isAdmin}
-                                onValueChange={(val: any) => updatePreference(pref.id, current.enabled, val)}
-                            >
-                                <SelectTrigger className="h-7 text-[10px] font-black w-28 bg-background">
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="instant">Instant</SelectItem>
-                                    <SelectItem value="digest">Digest</SelectItem>
-                                    <SelectItem value="both">Both</SelectItem>
-                                </SelectContent>
-                            </Select>
+                        <div className="space-y-4 pt-2 border-t border-dashed">
+                            {/* Channel Selection */}
+                            <div className="flex items-center gap-6">
+                                <span className="text-[10px] font-bold uppercase text-muted-foreground">Channels:</span>
+                                <div className="flex items-center gap-4">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox 
+                                            id={`${pref.id}-email`} 
+                                            checked={current.channels.includes('email')}
+                                            onCheckedChange={() => toggleChannel(pref.id, 'email')}
+                                        />
+                                        <Label htmlFor={`${pref.id}-email`} className="text-[10px] font-bold">EMAIL</Label>
+                                    </div>
+                                    
+                                    {wsSettings?.slack_enabled && (
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox 
+                                                id={`${pref.id}-slack`} 
+                                                checked={current.channels.includes('slack')}
+                                                onCheckedChange={() => toggleChannel(pref.id, 'slack')}
+                                            />
+                                            <Label htmlFor={`${pref.id}-slack`} className="text-[10px] font-bold">SLACK</Label>
+                                        </div>
+                                    )}
+
+                                    {wsSettings?.discord_enabled && (
+                                        <div className="flex items-center space-x-2">
+                                            <Checkbox 
+                                                id={`${pref.id}-discord`} 
+                                                checked={current.channels.includes('discord')}
+                                                onCheckedChange={() => toggleChannel(pref.id, 'discord')}
+                                            />
+                                            <Label htmlFor={`${pref.id}-discord`} className="text-[10px] font-bold">DISCORD</Label>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Delivery Strategy */}
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-bold uppercase text-muted-foreground">Delivery Strategy:</span>
+                                <Select 
+                                    value={current.delivery} 
+                                    disabled={!isMe && !isAdmin}
+                                    onValueChange={(val: any) => updatePreference(pref.id, current.enabled, val, current.channels)}
+                                >
+                                    <SelectTrigger className="h-7 text-[10px] font-black w-28 bg-background">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="instant">Instant</SelectItem>
+                                        <SelectItem value="digest">Digest</SelectItem>
+                                        <SelectItem value="both">Both</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
                      )}
                    </div>

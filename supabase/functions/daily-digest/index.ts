@@ -105,6 +105,51 @@ serve(async (req) => {
       }
     }
 
+    // 6. Team-Wide Digest for Slack & Discord
+    const { data: workspaceSettings } = await supabase.from('workspace_settings').select('*').single();
+    if (workspaceSettings && (workspaceSettings.slack_enabled || workspaceSettings.discord_enabled)) {
+      
+      const { data: pendingApprovals } = await supabase.from('approval_requests').select('count', { count: 'exact' }).eq('status', 'pending');
+      const { data: tasksUpdated } = await supabase.from('audit_logs').select('count', { count: 'exact' }).gt('created_at', yesterday).ilike('message', '%task%');
+      const { data: activeMilestones } = await supabase.from('milestones').select('count', { count: 'exact' }).eq('status', 'pending').lt('due_date', new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString());
+
+      const payload = {
+        tasksUpdated: tasksUpdated?.count || 0,
+        approvalsPending: pendingApprovals?.count || 0,
+        milestonesThisWeek: activeMilestones?.count || 0
+      };
+
+      if (workspaceSettings.slack_enabled) {
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/dispatch-webhook`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+          },
+          body: JSON.stringify({
+            platform: 'slack',
+            event_type: 'daily_digest',
+            payload
+          })
+        });
+      }
+
+      if (workspaceSettings.discord_enabled) {
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/dispatch-webhook`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+          },
+          body: JSON.stringify({
+            platform: 'discord',
+            event_type: 'daily_digest',
+            payload
+          })
+        });
+      }
+    }
+
     return new Response(JSON.stringify({ success: true }), { headers: { 'Content-Type': 'application/json' } })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: { 'Content-Type': 'application/json' } })

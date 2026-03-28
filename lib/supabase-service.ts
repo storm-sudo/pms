@@ -1,7 +1,6 @@
 import { supabase } from './supabase';
 import { User, Project, Task, Comment, TaskLog, AuditLog, Milestone, ProjectPhase, TaskDependency } from './types';
 import { addDays } from 'date-fns';
-import { notificationService } from './notifications';
 
 const logAudit = async (actorId: string, action: 'INSERT' | 'UPDATE' | 'DELETE', entityType: string, entityId: string, oldValue?: any, newValue?: any) => {
   const { error } = await supabase.from('audit_logs').insert([{
@@ -275,6 +274,7 @@ export const supabaseService = {
         const { data: requester } = await supabase.from('profiles').select('name').eq('id', request.requesterId).single();
 
         if (task && project && requester) {
+            const { notificationService } = await import('./notifications');
             await notificationService.sendNotification('approval_request_received', request.approverId, {
                 entityId: res.id,
                 entityType: 'approval_request',
@@ -304,6 +304,7 @@ export const supabaseService = {
         const { data: approver } = await supabase.from('profiles').select('name').eq('id', actorId).single();
 
         if (task && approver) {
+            const { notificationService } = await import('./notifications');
             await notificationService.sendNotification('approval_resolved', oldData.requester_id, {
                 entityId: id,
                 entityType: 'approval_request',
@@ -577,6 +578,7 @@ export const supabaseService = {
         const { data: requester } = await supabase.from('profiles').select('name').eq('id', requesterId).single();
 
         if (doc && project && requester) {
+            const { notificationService } = await import('./notifications');
             await notificationService.sendNotification('approval_request_received', approverId, {
                 entityId: res.id,
                 entityType: 'approval_request',
@@ -628,6 +630,7 @@ export const supabaseService = {
     try {
         const { data: approver } = await supabase.from('profiles').select('name').eq('id', actorId).single();
         if (approver) {
+            const { notificationService } = await import('./notifications');
             await notificationService.sendNotification('approval_resolved', currentDoc.uploaded_by, {
                 entityId: documentId,
                 entityType: 'document',
@@ -697,6 +700,7 @@ export const supabaseService = {
 
       if (stakeholders) {
         for (const s of stakeholders) {
+          const { notificationService } = await import('./notifications');
           await notificationService.sendNotification('document_published', s.user_id, {
             entityId: documentId,
             entityType: 'document',
@@ -729,6 +733,7 @@ export const supabaseService = {
         const { data: project } = await supabase.from('projects').select('lead_id').eq('id', report?.project_id).single();
 
         if (project?.lead_id && report) {
+            const { notificationService } = await import('./notifications');
             await notificationService.sendNotification('stakeholder_feedback_received', project.lead_id, {
                 entityId: reportId,
                 entityType: 'feedback',
@@ -960,24 +965,26 @@ export const supabaseService = {
     return data.map((d: any) => ({
       ...d,
       userId: d.user_id,
-      eventType: d.event_type
+      eventType: d.event_type,
+      channels: d.channels || ['email']
     }));
   },
 
-  async updateNotificationPreference(userId: string, eventType: string, enabled: boolean, delivery: 'instant' | 'digest' | 'both' = 'instant') {
+  async updateNotificationPreference(userId: string, eventType: string, enabled: boolean, delivery: 'instant' | 'digest' | 'both' = 'instant', channels: string[] = ['email']) {
     const { error } = await supabase
       .from('notification_preferences')
       .upsert({
         user_id: userId,
         event_type: eventType,
         enabled,
-        delivery
+        delivery,
+        channels
       }, { onConflict: 'user_id, event_type' });
     
     if (error) throw error;
   },
 
-  async logNotification(recipientId: string, eventType: string, entityType: string | undefined, entityId: string | undefined, subject: string, mode: 'instant' | 'digest') {
+  async logNotification(recipientId: string, eventType: string, entityType: string | undefined, entityId: string | undefined, subject: string, mode: string, channel: string = 'email') {
     const { error } = await supabase
       .from('notification_log')
       .insert({
@@ -986,7 +993,7 @@ export const supabaseService = {
         entity_type: entityType,
         entity_id: entityId,
         subject: subject,
-        delivery_mode: mode
+        delivery_mode: channel // As per Sprint 8 requirements
       });
     
     if (error) throw error;
@@ -1006,5 +1013,22 @@ export const supabaseService = {
     
     if (error) throw error;
     return data.length > 0;
+  },
+
+  async getWorkspaceSettings() {
+    const { data, error } = await supabase
+      .from('workspace_settings')
+      .select('*')
+      .single();
+    
+    if (error) throw error;
+    return data;
+  },
+
+  async updateWorkspaceSettings(updates: any, actorId: string) {
+    const { data: oldData } = await supabase.from('workspace_settings').select('*').single();
+    const { error } = await supabase.from('workspace_settings').update(updates).eq('id', oldData.id);
+    if (error) throw error;
+    await logAudit(actorId, 'UPDATE', 'workspace_settings', oldData.id, oldData, updates);
   }
 };
