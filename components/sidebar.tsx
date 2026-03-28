@@ -16,6 +16,8 @@ import {
   Settings,
   Search,
   Keyboard,
+  Clock,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApp, useIsAdmin, useProjects, useTasks } from '@/lib/store';
@@ -52,6 +54,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Projects', href: '/projects', icon: FolderKanban },
   { name: 'My Tasks', href: '/tasks', icon: ListTodo },
+  { name: 'Timesheets', href: '/timesheets', icon: Clock },
   { name: 'Timeline', href: '/timeline', icon: GanttChart },
 ];
 
@@ -59,6 +62,7 @@ const adminNavigation = [
   { name: 'User Management', href: '/team/management', icon: Users },
   { name: 'Task Assignment', href: '/admin/tasks', icon: ListTodo },
   { name: 'Team', href: '/team', icon: Users },
+  { name: 'Compliance Audit', href: '/admin/audit', icon: Shield },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 

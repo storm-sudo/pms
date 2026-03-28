@@ -16,7 +16,12 @@ import {
   ChevronDown,
   Shield,
   Layers,
-  History
+  History as HistoryIcon,
+  Play,
+  Square,
+  Fingerprint,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
@@ -46,7 +51,23 @@ import { Priority, TaskStatus, Subtask } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 export function TaskDetailPanel() {
-  const { selectedTaskId, setSelectedTaskId, updateTask, addTaskComment, addTaskLog, deleteTask, settings, notifyAssignees } = useApp();
+  const { 
+    selectedTaskId, 
+    setSelectedTaskId, 
+    updateTask, 
+    addTaskComment, 
+    addTaskLog, 
+    deleteTask, 
+    settings, 
+    notifyAssignees,
+    timer,
+    startTimer,
+    stopTimer,
+    workflows,
+    approvalRequests,
+    submitForApproval,
+    processApproval
+  } = useApp();
   const task = useTask(selectedTaskId || undefined);
   const project = useProject(task?.projectId);
   const users = useUsers();
@@ -158,7 +179,7 @@ export function TaskDetailPanel() {
     if (!logContent.trim() || !logHours) return;
     await addTaskLog(task.id, {
       content: logContent.trim(),
-      hoursSpent: parseFloat(logHours)
+      hoursLogged: parseFloat(logHours)
     });
     setLogContent('');
     setLogHours('');
@@ -237,6 +258,37 @@ export function TaskDetailPanel() {
     setSelectedTaskId(null);
   };
 
+  const currentWorkflow = workflows.find(w => w.id === task.workflowId);
+  const pendingRequests = approvalRequests.filter(r => r.taskId === task.id && r.status === 'pending');
+  const isApprover = project?.leadId === currentUser.id || currentUser.role === 'admin';
+
+  const handleApplyWorkflow = async (workflowId: string) => {
+    const wf = workflows.find(w => w.id === workflowId);
+    if (!wf) return;
+    await updateTask(task.id, { 
+      workflowId, 
+      currentWorkflowStep: wf.steps[0] 
+    });
+  };
+
+  const handleStepComplete = async (stepName: string) => {
+    if (!currentWorkflow) return;
+    const currentIndex = currentWorkflow.steps.indexOf(stepName);
+    const nextStep = currentWorkflow.steps[currentIndex + 1];
+    
+    if (nextStep) {
+      await updateTask(task.id, { currentWorkflowStep: nextStep });
+    } else {
+      // Last step, trigger completion review
+      await updateTask(task.id, { status: 'review' });
+    }
+  };
+
+  const handleRequestApproval = async (type: 'workflow_step' | 'task_completion', step?: string) => {
+    const approverId = project?.leadId || 'ADMIN_ID'; // Fallback to admin
+    await submitForApproval(task.id, approverId, type, step);
+  };
+
   return (
     <Sheet open={!!selectedTaskId} onOpenChange={(open) => !open && setSelectedTaskId(null)}>
       <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -247,6 +299,11 @@ export function TaskDetailPanel() {
                 <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0">
                   {project?.name}
                 </Badge>
+                {timer.activeTaskId === task.id && (
+                  <Badge className="bg-red-500/10 text-red-600 border-red-500/20 text-[10px] font-bold px-1.5 py-0 animate-pulse">
+                    Live: {timer.formatTime(timer.elapsed)}
+                  </Badge>
+                )}
                 {task.actualHours && task.actualHours > 0 && (
                    <Badge className="bg-blue-500/10 text-blue-600 border-blue-500/20 text-[10px] font-bold px-1.5 py-0">
                     {task.actualHours}h Logged
@@ -286,6 +343,75 @@ export function TaskDetailPanel() {
               </SelectContent>
             </Select>
           </div>
+
+          {/* Workflow Stepper */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                <Layers className="h-3.5 w-3.5" />
+                Workflow Progression
+              </label>
+              {!task.workflowId && isApprover && (
+                <Select onValueChange={handleApplyWorkflow}>
+                  <SelectTrigger className="h-7 w-[160px] text-[10px] font-bold uppercase ring-1 ring-border">
+                    <SelectValue placeholder="Assign Workflow" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {workflows.map(wf => (
+                      <SelectItem key={wf.id} value={wf.id}>{wf.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {currentWorkflow ? (
+              <div className="relative pl-4 space-y-4 before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-[2px] before:bg-muted">
+                {currentWorkflow.steps.map((step, idx) => {
+                  const isCurrent = task.currentWorkflowStep === step;
+                  const isCompleted = currentWorkflow.steps.indexOf(task.currentWorkflowStep || '') > idx;
+                  const isPending = !isCurrent && !isCompleted;
+                  
+                  return (
+                    <div key={step} className="relative flex items-center justify-between group">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "relative z-10 flex h-[10px] w-[10px] rounded-full border-2 transition-all",
+                          isCompleted ? "bg-emerald-500 border-emerald-500 scale-125 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
+                          isCurrent ? "bg-blue-500 border-blue-500 scale-150 animate-pulse shadow-[0_0_12px_rgba(59,130,246,0.6)]" :
+                          "bg-muted border-muted-foreground/30"
+                        )} />
+                        <span className={cn(
+                          "text-xs font-bold tracking-tight transition-opacity",
+                          isCompleted ? "text-emerald-600 opacity-60" :
+                          isCurrent ? "text-foreground" :
+                          "text-muted-foreground opacity-40"
+                        )}>
+                          {step}
+                        </span>
+                      </div>
+                      
+                      {isCurrent && (
+                        <Button 
+                          size="sm" 
+                          className="h-6 text-[9px] font-black uppercase tracking-widest bg-blue-600 hover:bg-blue-700 shadow-md"
+                          onClick={() => handleStepComplete(step)}
+                        >
+                          Complete Step
+                        </Button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-4 px-4 border-2 border-dashed rounded-xl bg-muted/20 text-center">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">No structured workflow assigned</p>
+              </div>
+            )}
+          </div>
+
+          <Separator className="opacity-50" />
 
           {/* Assignees */}
           <div className="space-y-3">
@@ -431,18 +557,69 @@ export function TaskDetailPanel() {
           </div>
 
           {/* Approval Action */}
-          {task.status === 'review' && !task.approvedBy && (
-            <div className="p-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 space-y-3">
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-5 w-5" />
-                <span className="font-semibold">Ready for Approval</span>
+          {(task.status === 'review' || pendingRequests.length > 0) && (
+            <div className="p-4 rounded-xl border-2 border-dashed border-blue-500/30 bg-blue-500/5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                  <Fingerprint className="h-5 w-5" />
+                  <span className="font-black text-xs uppercase tracking-widest">Formal Verification</span>
+                </div>
+                {pendingRequests.length === 0 && (
+                   <Badge className="bg-blue-600 text-[9px] font-black uppercase px-2 py-0.5">Ready</Badge>
+                )}
               </div>
-              <p className="text-sm text-muted-foreground">
-                This task has been submitted for review. An Admin or the assigned Reviewer can approve it.
-              </p>
-              <Button onClick={handleApprove} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white">
-                Approve & Mark Complete
-              </Button>
+
+              {pendingRequests.map(req => (
+                <div key={req.id} className="p-3 bg-background rounded-lg border shadow-sm space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground">Awaiting Sign-off</span>
+                    <Badge variant="outline" className="text-[9px] font-black uppercase px-1.5 py-0 border-blue-500/20 text-blue-600">
+                      {req.type.replace('_', ' ')}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-5 w-5">
+                      <AvatarFallback className="text-[8px] font-bold">
+                        {getInitials(users.find(u => u.id === req.approverId)?.name || 'U')}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-xs font-bold">{users.find(u => u.id === req.approverId)?.name}</span>
+                  </div>
+                  {isApprover && req.approverId === currentUser.id && (
+                    <div className="flex gap-2 pt-1 border-t mt-2">
+                      <Button 
+                        size="sm" 
+                        className="flex-1 bg-emerald-600 font-bold text-[10px] uppercase tracking-widest h-7"
+                        onClick={() => processApproval(req.id, 'approved')}
+                      >
+                        Approve
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="flex-1 border-destructive text-destructive font-bold text-[10px] uppercase tracking-widest h-7"
+                        onClick={() => processApproval(req.id, 'rejected')}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {pendingRequests.length === 0 && task.status === 'review' && (
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground italic leading-relaxed">
+                    This task is ready for final sign-off. Request a review from the Project Lead or Admin.
+                  </p>
+                  <Button 
+                    onClick={() => handleRequestApproval('task_completion')} 
+                    className="w-full bg-blue-600 hover:bg-blue-700 font-black text-[10px] uppercase tracking-widest h-10 shadow-lg shadow-blue-500/20"
+                  >
+                    Send to Reviewer
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 
@@ -505,7 +682,7 @@ export function TaskDetailPanel() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <label className="text-sm font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                <History className="h-4 w-4" />
+                <HistoryIcon className="h-4 w-4" />
                 Work Discovery Logs
               </label>
               <Button 
@@ -517,6 +694,53 @@ export function TaskDetailPanel() {
                 {showLogForm ? 'Cancel' : 'Log Hours'}
               </Button>
             </div>
+
+            {/* Live Timer Widget */}
+            {(task.assigneeIds.includes(currentUser.id) || currentUser.role === 'admin') && (
+              <Card className={cn(
+                "p-4 border-2 transition-all overflow-hidden relative",
+                timer.activeTaskId === task.id ? "border-blue-500 bg-blue-500/5 shadow-lg shadow-blue-500/10" : "border-dashed bg-muted/30"
+              )}>
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Live Tracking</p>
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "h-2 w-2 rounded-full",
+                        timer.activeTaskId === task.id ? "bg-blue-500 animate-pulse" : "bg-muted-foreground/30"
+                      )} />
+                      <p className="text-2xl font-black font-mono tracking-tighter">
+                        {timer.activeTaskId === task.id ? timer.formatTime(timer.elapsed) : "00:00:00"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {timer.activeTaskId === task.id ? (
+                    <Button 
+                      onClick={stopTimer}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold uppercase text-[10px] tracking-widest h-10 px-6 gap-2"
+                    >
+                      <Square className="h-4 w-4 fill-current" />
+                      Stop Timer
+                    </Button>
+                  ) : (
+                    <Button 
+                      onClick={() => startTimer(task.id)}
+                      disabled={!!timer.activeTaskId && timer.activeTaskId !== task.id}
+                      variant="outline"
+                      className="border-2 font-bold uppercase text-[10px] tracking-widest h-10 px-6 gap-2 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all"
+                    >
+                      <Play className="h-4 w-4 fill-current" />
+                      Start Timer
+                    </Button>
+                  )}
+                </div>
+                
+                {timer.activeTaskId && timer.activeTaskId !== task.id && (
+                  <p className="text-[9px] text-muted-foreground mt-2 italic">* You have another timer running</p>
+                )}
+              </Card>
+            )}
 
             {showLogForm && (
               <Card className="p-3 bg-muted/30 border-2 border-dashed border-emerald-500/30 space-y-3">
@@ -543,17 +767,41 @@ export function TaskDetailPanel() {
 
             <div className="space-y-2">
               {task.logs?.map(log => (
-                <div key={log.id} className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/10 space-y-1 group">
+                <div key={log.id} className="p-3 rounded-lg bg-muted/50 border space-y-2 group relative overflow-hidden">
+                  {log.approvalStatus === 'approved' && (
+                    <div className="absolute right-0 top-0 h-1 w-full bg-emerald-500" />
+                  )}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-500">{log.userName}</span>
-                      <span className="text-[10px] text-muted-foreground/60">{new Date(log.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
+                       <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[8px]">
+                          {getInitials(log.userName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-black uppercase text-foreground">{log.userName}</span>
+                        <span className="text-[9px] text-muted-foreground/60">{new Date(log.createdAt).toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' })}</span>
+                      </div>
                     </div>
-                    <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-none font-black">{log.hoursSpent}h</Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "text-[9px] font-black uppercase px-1.5 py-0 border-none",
+                          log.approvalStatus === 'approved' ? "bg-emerald-500/10 text-emerald-600" :
+                          log.approvalStatus === 'rejected' ? "bg-destructive/10 text-destructive" :
+                          "bg-amber-500/10 text-amber-600"
+                        )}
+                      >
+                        {log.approvalStatus || 'pending'}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px] bg-accent text-foreground border-none font-black">{log.hoursLogged}h</Badge>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{log.content}</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed italic">"{log.content}"</p>
                 </div>
               ))}
+              
               {(!task.logs || task.logs.length === 0) && (
                 <div className="text-center py-6 border-2 border-dashed rounded-xl opacity-30">
                   <Clock className="h-8 w-8 mx-auto mb-2" />

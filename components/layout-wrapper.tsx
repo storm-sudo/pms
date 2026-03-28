@@ -12,14 +12,26 @@ import { ReminderChecker } from '@/components/reminder-checker';
 export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn } = useApp();
+  const { isLoggedIn, currentUser } = useApp();
   const isAuthPage = pathname === '/login' || pathname === '/register';
+  const isPortalPage = pathname?.startsWith('/portal');
 
   useEffect(() => {
     if (!isLoggedIn && !isAuthPage) {
       router.push('/login');
+      return;
     }
-  }, [isLoggedIn, isAuthPage, router]);
+
+    // Redirect stakeholders to portal if they attempt to access internal app
+    if (isLoggedIn && currentUser?.role === 'stakeholder' && !isPortalPage) {
+      router.push('/portal');
+    }
+
+    // Redirect admins/leads away from portal if they are at root portal (optional)
+    // if (isLoggedIn && currentUser?.role !== 'stakeholder' && isPortalPage) {
+    //   router.push('/app');
+    // }
+  }, [isLoggedIn, isAuthPage, isPortalPage, currentUser, router]);
 
   // Auth pages (login, register) render without sidebar
   if (isAuthPage) {
@@ -29,6 +41,11 @@ export function LayoutWrapper({ children }: { children: React.ReactNode }) {
   // Prevent layout flash while redirecting to login
   if (!isLoggedIn) {
     return null;
+  }
+
+  // Portal pages have their own layout (defined in app/portal/layout.tsx)
+  if (isPortalPage) {
+    return <>{children}</>;
   }
 
   return (

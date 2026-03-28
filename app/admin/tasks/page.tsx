@@ -11,12 +11,14 @@ import {
   ArrowRight,
   ShieldCheck,
   UserPlus,
-  Plus
+  Plus,
+  TrendingUp
 } from 'lucide-react';
 import { useApp, useTasks, useUsers, useIsAdmin } from '@/lib/store';
+import { ResourceHeatmap } from '@/components/resource-heatmap';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -41,13 +43,14 @@ import { statusColors } from '@/lib/mock-data';
 import { useRouter } from 'next/navigation';
 
 export default function AdminTasksPage() {
-  const { updateTask, projects, addTask, notifyAssignees, departments } = useApp();
+  const { updateTask, projects, addTask, notifyAssignees, departments, captureSnapshots } = useApp();
   const tasks = useTasks();
   const users = useUsers();
   const isAdmin = useIsAdmin();
   const router = useRouter();
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [skillFilter, setSkillFilter] = useState<string[]>([]);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -73,6 +76,12 @@ export default function AdminTasksPage() {
   const filteredTasks = tasks.filter(t => 
     t.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const allSkills = Array.from(new Set(users.flatMap(u => u.skills)));
+  const filteredUsers = users.filter(u => u.role === 'member').filter(u => {
+    const matchesSkills = skillFilter.length === 0 || skillFilter.every(s => u.skills.includes(s));
+    return matchesSkills;
+  });
 
   const selectedTask = tasks.find(t => t.id === selectedTaskId);
   const selectedProject = projects.find(p => p.id === selectedTask?.projectId);
@@ -146,7 +155,10 @@ export default function AdminTasksPage() {
   };
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-8 max-w-[1600px] mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Heatmap Section */}
+      <ResourceHeatmap />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="space-y-1">
@@ -200,6 +212,17 @@ export default function AdminTasksPage() {
             </div>
           </DialogContent>
         </Dialog>
+        
+        <Button 
+          variant="outline" 
+          className="h-12 border-2 border-emerald-500/20 hover:bg-emerald-500/5 text-emerald-600 font-black uppercase text-[10px] tracking-widest gap-2"
+          onClick={() => {
+            captureSnapshots();
+          }}
+        >
+          <TrendingUp className="h-4 w-4" />
+          Capture Weekly Snapshots
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -305,10 +328,28 @@ export default function AdminTasksPage() {
 
                 {/* Individual Assignment */}
                 <div className="space-y-4">
-                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Users className="h-4 w-4 text-blue-500" />
-                      <h4 className="text-xs font-black uppercase tracking-[0.2em]">Individual Members</h4>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-blue-500" />
+                        <h4 className="text-xs font-black uppercase tracking-[0.2em]">Individual Members</h4>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {allSkills.map(skill => (
+                          <Badge 
+                            key={skill}
+                            variant={skillFilter.includes(skill) ? "default" : "outline"}
+                            className="cursor-pointer text-[8px] font-black uppercase tracking-tighter"
+                            onClick={() => {
+                              setSkillFilter(prev => 
+                                prev.includes(skill) ? prev.filter(s => s !== skill) : [...prev, skill]
+                              );
+                            }}
+                          >
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button 
@@ -333,7 +374,7 @@ export default function AdminTasksPage() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {users.map(user => {
+                    {filteredUsers.map(user => {
                       const isAssigned = selectedTask.assigneeIds.includes(user.id);
                       return (
                         <button
@@ -366,7 +407,7 @@ export default function AdminTasksPage() {
                   </div>
                 </div>
 
-                  <div className="p-5 rounded-2xl bg-blue-600/5 border border-blue-500/10 flex items-start gap-4">
+                <div className="p-5 rounded-2xl bg-blue-600/5 border border-blue-500/10 flex items-start gap-4">
                   <div className="h-10 w-10 rounded-xl bg-blue-600/10 flex items-center justify-center shrink-0">
                     <ShieldCheck className="h-5 w-5 text-blue-600" />
                   </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext } from 'react';
-import { User, Project, Task, Comment, AppSettings } from './types';
+import { User, Project, Task, Comment, AppSettings, Workflow, ApprovalRequest, CapacitySnapshot, Document, PublishedReport, StakeholderFeedback, Milestone, ProjectPhase, TaskDependency } from './types';
 import { allUsers, projects as initialProjects, tasks as initialTasks } from './mock-data';
 
 export interface AppState {
@@ -10,6 +10,12 @@ export interface AppState {
   users: User[];
   projects: Project[];
   tasks: Task[];
+  workflows: Workflow[];
+  approvalRequests: ApprovalRequest[];
+  capacitySnapshots: CapacitySnapshot[];
+  documents: Document[];
+  publishedReports: PublishedReport[];
+  stakeholderFeedback: StakeholderFeedback[];
   theme: 'light' | 'dark';
   sidebarCollapsed: boolean;
   selectedTaskId: string | null;
@@ -17,6 +23,9 @@ export interface AppState {
   selectedUserId: string | null;
   settings: AppSettings;
   departments: string[];
+  milestones: Milestone[];
+  phases: ProjectPhase[];
+  dependencies: TaskDependency[];
 }
 
 export interface AppActions {
@@ -49,8 +58,46 @@ export interface AppActions {
   approveUser: (userId: string) => Promise<void>;
   rejectUser: (userId: string) => Promise<void>;
   addUser: (user: Omit<User, 'id' | 'joinedDate' | 'lastActive' | 'workload' | 'status'> & { password?: string }) => Promise<void>;
-  addTaskLog: (taskId: string, log: { content: string; hoursSpent: number }) => Promise<void>;
+  addTaskLog: (taskId: string, log: { content: string; hoursLogged: number }) => Promise<void>;
   addDepartment: (name: string) => Promise<void>;
+  approveTaskLog: (logId: string) => Promise<void>;
+  
+  // Timer Actions (Hook Wrapper)
+  startTimer: (taskId: string) => void;
+  stopTimer: () => void;
+  timer: {
+    isRunning: boolean;
+    elapsed: number;
+    activeTaskId: string | null;
+    formatTime: (seconds: number) => string;
+  };
+  
+  // Workflows & Approvals
+  submitForApproval: (taskId: string, approverId: string, type: 'workflow_step' | 'task_completion', workflowStep?: string) => Promise<void>;
+  processApproval: (requestId: string, status: 'approved' | 'rejected', comment?: string) => Promise<void>;
+  updateSkills: (userId: string, skills: string[]) => Promise<void>;
+  updateCapacity: (userId: string, hours: number) => Promise<void>;
+  captureSnapshots: () => Promise<void>;
+  
+  // Document Management
+  uploadDocument: (projectId: string, file: File, metadata: { tags: string[], accessLevel: 'all' | 'lead' | 'admin' }) => Promise<void>;
+  updateDocumentAccess: (documentId: string, level: 'all' | 'lead' | 'admin') => Promise<void>;
+  addDocumentVersion: (documentId: string, projectId: string, file: File, currentVersion: number) => Promise<void>;
+  submitDocumentForApproval: (documentId: string, approverId: string) => Promise<void>;
+  processDocumentApproval: (requestId: string, documentId: string, status: 'approved' | 'rejected') => Promise<void>;
+  publishDocumentSnapshot: (documentId: string) => Promise<void>;
+  addPortalComment: (reportId: string, content: string) => Promise<void>;
+  getStakeholderProjects: (userId: string) => Promise<Project[]>;
+  getPublishedReports: (projectId?: string) => Promise<PublishedReport[]>;
+
+  // Gantt / Scheduling
+  addMilestone: (milestone: Partial<Milestone>) => Promise<void>;
+  updateMilestone: (id: string, updates: Partial<Milestone>) => Promise<void>;
+  addProjectPhase: (phase: Partial<ProjectPhase>) => Promise<void>;
+  updateProjectPhase: (id: string, updates: Partial<ProjectPhase>) => Promise<void>;
+  addTaskDependency: (predecessorId: string, successorId: string) => Promise<void>;
+  removeTaskDependency: (predecessorId: string, successorId: string) => Promise<void>;
+  updateTaskDates: (taskId: string, startDate: string, endDate: string) => Promise<void>;
 }
 
 export type AppContextType = AppState & AppActions;
@@ -61,6 +108,15 @@ export const initialState: AppState = {
   users: allUsers,
   projects: initialProjects,
   tasks: initialTasks,
+  workflows: [],
+  approvalRequests: [],
+  capacitySnapshots: [],
+  documents: [],
+  publishedReports: [],
+  stakeholderFeedback: [],
+  milestones: [],
+  phases: [],
+  dependencies: [],
   theme: 'dark',
   sidebarCollapsed: false,
   selectedTaskId: null,

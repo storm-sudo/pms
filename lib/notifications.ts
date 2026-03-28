@@ -1,5 +1,20 @@
 import { Task, Project, User } from './types';
 import { toast } from 'sonner';
+import { supabaseService } from './supabase-service';
+
+export type NotificationEventType = 
+  | 'approval_request_received'
+  | 'approval_resolved'
+  | 'researcher_overload'
+  | 'stakeholder_feedback_received'
+  | 'task_status_changed'
+  | 'document_published'
+  | 'milestone_approaching'
+  | 'phase_starting_soon'
+  | 'daily_digest'
+  | 'account_registered'
+  | 'account_approved'
+  | 'account_created';
 
 export interface EmailNotification {
   to: string;
@@ -10,6 +25,201 @@ export interface EmailNotification {
 
 class NotificationService {
   private sender = 'Synapse@nucleovir.com';
+
+  /**
+   * Unified entry point for all laboratory notifications.
+   * Performs preference checks and deduplication (1-hour window).
+   */
+  async sendNotification(
+    eventType: NotificationEventType,
+    recipientId: string,
+    payload: {
+      subject?: string;
+      body?: string;
+      html?: string;
+      entityId?: string;
+      entityType?: string;
+      data?: any;
+    }
+  ) {
+    try {
+      // 1. Fetch recipient profile
+      const users = await supabaseService.getProfiles();
+      const recipient = users.find(u => u.id === recipientId);
+      if (!recipient) return;
+
+      // 2. Check notification preferences
+      const prefs = await supabaseService.getNotificationPreferences(recipientId);
+      const pref = prefs.find(p => p.eventType === eventType);
+      
+      // If preference exists and is disabled, skip
+      if (pref && !pref.enabled) return;
+
+      // 3. Deduplication check (1-hour window for same entity + event)
+      if (payload.entityId) {
+        const isDuplicate = await supabaseService.checkDuplicateNotification(recipientId, eventType, payload.entityId, 1);
+        if (isDuplicate) {
+          console.log(`[DEDUPLICATION] Skipping duplicate ${eventType} for entity ${payload.entityId}`);
+          return;
+        }
+      }
+
+      // 4. Determine delivery mode (instant vs digest)
+      // Instant events are explicitly listed by the user
+      const instantEvents: NotificationEventType[] = [
+        'approval_request_received',
+        'approval_resolved',
+        'researcher_overload',
+        'stakeholder_feedback_received',
+        'account_registered',
+        'account_approved',
+        'account_created'
+      ];
+
+      const deliveryMode = instantEvents.includes(eventType) ? 'instant' : 'digest';
+
+      // 5. Build content using templates if not provided
+      let { subject, html, body } = payload;
+      if (!subject || !html) {
+        const template = this.getTemplate(eventType, payload.data, recipient);
+        subject = subject || template.subject;
+        html = html || template.html;
+        body = body || template.text;
+      }
+
+      // 6. Action: Send immediately if instant, or just log if digest
+      // Note: The Edge Function will query the log to send digests later.
+      if (deliveryMode === 'instant') {
+        await this.dispatchEmail(recipient.email, subject!, body!, html!);
+      }
+
+      // 7. Log the notification
+      await supabaseService.logNotification(
+        recipientId,
+        eventType,
+        payload.entityType,
+        payload.entityId,
+        subject!,
+        deliveryMode
+      );
+
+    } catch (error) {
+      console.error(`Failed to send ${eventType} notification:`, error);
+    }
+  }
+
+  private async dispatchEmail(to: string, subject: string, body: string, html: string) {
+    try {
+      const response = await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to,
+          subject,
+          html: html || `<p>${body.replace(/\n/g, '<br>')}</p>`,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      console.log(`%c[EMAIL DISPATCHED] To: ${to} Subject: ${subject}`, 'color: #10b981; font-weight: bold;');
+    } catch (error: any) {
+      console.error('Email Dispatch Error:', error);
+      toast.error(`Notification Failure: ${error.message}`);
+    }
+  }
+
+  private getTemplate(eventType: NotificationEventType, data: any, recipient: User): { subject: string, html: string, text: string } {
+    const firstName = recipient.name.split(' ')[0];
+    let title = '';
+    let content = '';
+    let ctaText = 'View in Synapse';
+    let ctaUrl = `${window.location.origin}/`;
+    let subject = `SYNAPSE: ${eventType.replace(/_/g, ' ').toUpperCase()}`;
+
+    switch (eventType) {
+      case 'approval_request_received':
+        title = 'Approval Required';
+        content = `Dear <span class="highlight">${firstName}</span>,<br><br>
+                   A new approval request for "${data.title}" requires your laboratory review.<br><br>
+                   <b>Project:</b> ${data.projectName}<br>
+                   <b>Requested By:</b> ${data.requesterName}`;
+        ctaText = 'Review Request';
+        ctaUrl = `${window.location.origin}/workflow`;
+        subject = `SYNAPSE: Approval Required - ${data.title}`;
+        break;
+
+      case 'approval_resolved':
+        title = 'Approval Resolved';
+        content = `Dear <span class="highlight">${firstName}</span>,<br><br>
+                   Your request for "${data.title}" has been <b class="highlight">${data.status.toUpperCase()}</b> by ${data.approverName}.<br><br>
+                   ${data.comment ? `<b>Supervisor Note:</b> ${data.comment}` : ''}`;
+        ctaText = 'View Details';
+        ctaUrl = `${window.location.origin}/tasks`;
+        subject = `SYNAPSE: Request ${data.status.toUpperCase()} - ${data.title}`;
+        break;
+
+      case 'researcher_overload':
+        title = 'Capacity Overload Alert';
+        content = `Leadership Alert,<br><br>
+                   Researcher <span class="highlight">${data.userName}</span> has exceeded their defined weekly capacity (${data.percentage}%).<br><br>
+                   Please review laboratory throughput in the control center.`;
+        ctaText = 'Rebalance Workload';
+        ctaUrl = `${window.location.origin}/admin/tasks`;
+        subject = `CRITICAL: Capacity Overload - ${data.userName}`;
+        break;
+
+      case 'stakeholder_feedback_received':
+        title = 'Stakeholder Engagement';
+        content = `Laboratory Update,<br><br>
+                   New feedback has been posted by a stakeholder on the clinical report: <span class="highlight">${data.reportName}</span>.<br><br>
+                   <b>Comment:</b> "${data.comment}"`;
+        ctaText = 'Review Feedback';
+        ctaUrl = `${window.location.origin}/projects/${data.projectId}/documents`;
+        subject = `SYNAPSE: Stakeholder Feedback Received`;
+        break;
+
+      case 'document_published':
+        title = 'Research Publication';
+        content = `Dear Collaborator,<br><br>
+                   A new clinical report or research document has been published in the portal: <span class="highlight">${data.docName}</span>.<br><br>
+                   <b>Project:</b> ${data.projectName}`;
+        ctaText = 'View in Portal';
+        ctaUrl = `${window.location.origin}/portal/reports`;
+        subject = `SYNAPSE: New Publication Released - ${data.projectName}`;
+        break;
+
+      case 'account_approved':
+        title = 'Account Approved';
+        content = `Dear <span class="highlight">${firstName}</span>,<br><br>
+                   Your account has been approved. You can now log in to the Synapse Laboratory Portal.`;
+        ctaText = 'Login to Portal';
+        subject = `SYNAPSE: Account Approved`;
+        break;
+
+      case 'account_created':
+        title = 'Account Created';
+        content = `Dear <span class="highlight">${firstName}</span>,<br><br>
+                   An account has been created for you by an administrator.<br><br>
+                   <b>Initial Password:</b> ${data.password || 'dmin123'}`;
+        ctaText = 'Get Started';
+        subject = `SYNAPSE: Account Created`;
+        break;
+
+      default:
+        title = 'Laboratory Update';
+        content = `Hello ${firstName}, there is a new update waiting for you in the Synapse platform.`;
+    }
+
+    return {
+      subject,
+      text: content.replace(/<[^>]*>?/gm, ''),
+      html: this.getHtmlTemplate(title, content, ctaText, ctaUrl)
+    };
+  }
 
   private getHtmlTemplate(title: string, content: string, ctaText: string, ctaUrl: string) {
     return `
@@ -47,183 +257,6 @@ class NotificationService {
         </body>
       </html>
     `;
-  }
-
-  async sendEmail(to: string, subject: string, body: string, html?: string) {
-    const notification: EmailNotification = {
-      to,
-      subject,
-      body,
-      sentAt: new Date().toISOString(),
-    };
-
-    // Production: Call server-side API
-    try {
-      const response = await fetch('/api/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to,
-          subject,
-          html: html || `<p>${body.replace(/\n/g, '<br>')}</p>`,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
-      }
-
-      console.log(`%c[EMAIL SENT] To: ${to} Subject: ${subject}`, 'color: #10b981; font-weight: bold;');
-    } catch (error: any) {
-      console.error('Notification Error:', error);
-      // Fallback for development/offline
-      toast.error(`Email Error: ${error.message}`);
-    }
-
-    // For demo/transparency, log to localStorage
-    const logs = JSON.parse(localStorage.getItem('email_logs') || '[]');
-    logs.push(notification);
-    localStorage.setItem('email_logs', JSON.stringify(logs.slice(-50)));
-  }
-
-  notifyTaskAssignment(task: Task, project: Project, assignees: User[], manager: User) {
-    assignees.forEach(assignee => {
-      const firstName = assignee.name.split(' ')[0];
-      const subject = `SYNAPSE: New Task Assigned - ${task.priority.toUpperCase()} Priority`;
-      const content = `Dear <span class="highlight">${firstName}</span>,<br><br>
-                       You have been assigned a <b>new task</b> "${task.title}" in project <span class="highlight">${project.name}</span> by ${manager.name}.<br><br>
-                       <b>Due Date:</b> ${task.dueDate || 'Not set'}<br>
-                       <b>Priority:</b> ${task.priority.toUpperCase()}`;
-      
-      const textBody = `Dear ${firstName}, you have been assigned a new task "${task.title}" in project "${project.name}" by ${manager.name}. Due date: ${task.dueDate || 'Not set'}.`;
-      const html = this.getHtmlTemplate('New Task Assignment', content, 'View Task Details', `${window.location.origin}/tasks`);
-
-      this.sendEmail(assignee.email, subject, textBody, html);
-    });
-  }
-
-  notifyTaskOverdue(task: Task, project: Project, assignees: User[]) {
-    assignees.forEach(assignee => {
-      const firstName = assignee.name.split(' ')[0];
-      const subject = `SYNAPSE: Task OVERDUE - ${task.title}`;
-      const content = `Dear <span class="highlight">${firstName}</span>,<br><br>
-                       The task "${task.title}" in project <span class="highlight">${project.name}</span> is now <b style="color: #ef4444;">OVERDUE</b>.<br><br>
-                       <b>Original Due Date:</b> ${task.dueDate}<br>
-                       Please update the status or request an extension.`;
-
-      const textBody = `Dear ${firstName}, your task "${task.title}" in project "${project.name}" is OVERDUE.`;
-      const html = this.getHtmlTemplate('Task Overdue Alert', content, 'Update Task Status', `${window.location.origin}/tasks`);
-
-      this.sendEmail(assignee.email, subject, textBody, html);
-    });
-  }
-
-  notifyTaskDueSoon(task: Task, project: Project, assignees: User[]) {
-    assignees.forEach(assignee => {
-      const firstName = assignee.name.split(' ')[0];
-      const subject = `SYNAPSE: Task Due Soon - ${task.title}`;
-      const content = `Dear <span class="highlight">${firstName}</span>,<br><br>
-                       This is a reminder that your task "${task.title}" in project <span class="highlight">${project.name}</span> is due within <b class="highlight">24 hours</b>.<br><br>
-                       <b>Due Date:</b> ${task.dueDate}`;
-
-      const textBody = `Dear ${firstName}, your task "${task.title}" in project "${project.name}" is due within 24 hours.`;
-      const html = this.getHtmlTemplate('Task Deadline Reminder', content, 'Review Task', `${window.location.origin}/tasks`);
-
-      this.sendEmail(assignee.email, subject, textBody, html);
-    });
-  }
-
-  checkAndSendReports(tasks: Task[], projects: Project[], users: User[]) {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentDay = now.getDay(); 
-    const todayStr = now.toISOString().split('T')[0];
-    
-    // Check for "Due Soon" tasks (due tomorrow)
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    const tomorrowStr = tomorrow.toISOString().split('T')[0];
-    
-    tasks.forEach(task => {
-      if (task.status !== 'done' && task.dueDate === tomorrowStr) {
-        const lastReminded = localStorage.getItem(`reminded_soon_${task.id}`);
-        if (lastReminded !== todayStr) {
-          const project = projects.find(p => p.id === task.projectId);
-          const assignees = users.filter(u => task.assigneeIds.includes(u.id));
-          if (project && assignees.length > 0) {
-            this.notifyTaskDueSoon(task, project, assignees);
-            localStorage.setItem(`reminded_soon_${task.id}`, todayStr);
-          }
-        }
-      }
-    });
-
-    // Check for "Overdue" tasks
-    tasks.forEach(task => {
-      if (task.status !== 'done' && task.dueDate && task.dueDate < todayStr) {
-        const lastReminded = localStorage.getItem(`reminded_overdue_${task.id}`);
-        if (lastReminded !== todayStr) {
-          const project = projects.find(p => p.id === task.projectId);
-          const assignees = users.filter(u => task.assigneeIds.includes(u.id));
-          if (project && assignees.length > 0) {
-            this.notifyTaskOverdue(task, project, assignees);
-            localStorage.setItem(`reminded_overdue_${task.id}`, todayStr);
-          }
-        }
-      }
-    });
-    
-    // Daily Report: 5 PM
-    const lastDaily = localStorage.getItem('last_daily_report');
-    if (currentHour >= 17 && lastDaily !== todayStr) {
-      this.sendDailyReport(tasks, projects, users);
-      localStorage.setItem('last_daily_report', todayStr);
-    }
-    
-    // Weekly Report: Saturday 5 PM
-    const lastWeekly = localStorage.getItem('last_weekly_report');
-    if (currentDay === 6 && currentHour >= 17 && lastWeekly !== todayStr) {
-       this.sendWeeklyReport(tasks, projects, users);
-       localStorage.setItem('last_weekly_report', todayStr);
-    }
-  }
-
-  private sendDailyReport(tasks: Task[], projects: Project[], users: User[]) {
-    users.forEach(user => {
-      const myTasks = tasks.filter(t => t.assigneeIds.includes(user.id) && t.status !== 'done');
-      if (myTasks.length === 0) return;
-
-      const subject = `SYNAPSE: Daily Activity Summary`;
-      const content = `Dear <span class="highlight">${user.name.split(' ')[0]}</span>,<br><br>
-                       Here is your daily summary for ${new Date().toLocaleDateString()}:<br>
-                       You have <b class="highlight">${myTasks.length} active tasks</b>.<br><br>
-                       ${myTasks.slice(0, 5).map(t => `&bull; ${t.title} (<span style="color: #64748b;">${t.priority}</span>)`).join('<br>')}`;
-
-      const textBody = `Dear ${user.name.split(' ')[0]}, you have ${myTasks.length} active tasks.`;
-      const html = this.getHtmlTemplate('Daily Activity Summary', content, 'Go to Dashboard', `${window.location.origin}/`);
-
-      this.sendEmail(user.email, subject, textBody, html);
-    });
-  }
-
-  private sendWeeklyReport(tasks: Task[], projects: Project[], users: User[]) {
-     users.forEach(user => {
-      const completedThisWeek = tasks.filter(t => 
-        t.assigneeIds.includes(user.id) && 
-        t.status === 'done'
-      ).length;
-
-      const subject = `SYNAPSE: Weekly Science Progress Report`;
-      const content = `Dear <span class="highlight">${user.name.split(' ')[0]}</span>,<br><br>
-                       Excellent work this week! You have successfully completed <b class="highlight">${completedThisWeek} tasks</b>.<br><br>
-                       Rest well and we look forward to more breakthroughs on Monday.`;
-
-      const textBody = `Dear ${user.name.split(' ')[0]}, you completed ${completedThisWeek} tasks this week.`;
-      const html = this.getHtmlTemplate('Weekly Progress Report', content, 'View My Accomplishments', `${window.location.origin}/tasks`);
-
-      this.sendEmail(user.email, subject, textBody, html);
-    });
   }
 }
 

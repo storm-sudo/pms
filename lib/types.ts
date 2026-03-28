@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'member';
+export type UserRole = 'admin' | 'lead' | 'member' | 'stakeholder';
 export type Department = string;
 export type Priority = 'critical' | 'high' | 'medium' | 'low';
 export type TaskStatus = 'todo' | 'in-progress' | 'blocked' | 'review' | 'done';
@@ -7,10 +7,13 @@ export type ProjectStatus = 'active' | 'on-hold' | 'at-risk' | 'completed';
 export interface User {
   id: string;
   name: string;
+  full_name?: string; // For DB compatibility
   email: string;
   password?: string;
   role: UserRole;
   department: Department;
+  skills: string[];
+  weeklyCapacityHours: number;
   avatar?: string;
   workload: {
     activeTasks: number;
@@ -48,7 +51,10 @@ export interface TaskLog {
   userId: string;
   userName: string;
   content: string; // "how it was done"
-  hoursSpent: number;
+  hoursLogged: number;
+  logDate: string;
+  approvalStatus: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
   createdAt: string;
 }
 
@@ -62,6 +68,7 @@ export interface Task {
   status: TaskStatus;
   dueDate?: string;
   startDate?: string;
+  endDate?: string;
   completedDate?: string;
   subtasks: Subtask[];
   comments: Comment[];
@@ -75,6 +82,8 @@ export interface Task {
   progress?: number; // 0-100 progress percentage
   reviewerId?: string;
   approvedBy?: string; // User ID of the person who approved it
+  workflowId?: string; // Link to a Workflow template
+  currentWorkflowStep?: string; // Current step name from the workflow
   tags: string[];
   order: number;
   createdAt: string;
@@ -215,16 +224,153 @@ export interface OKR {
   year: number;
 }
 
-export interface QuickFilter {
+export interface Workflow {
   id: string;
   name: string;
-  filters: {
-    status?: TaskStatus[];
-    priority?: Priority[];
-    department?: Department[];
-    assigneeIds?: string[];
-    dueDateRange?: { start: string; end: string };
-    tags?: string[];
+  description?: string;
+  steps: string[]; // e.g., ["Protocol Design", "Lab Execution", "Data Analysis", "Final Review"]
+  createdAt: string;
+}
+
+export interface ApprovalRequest {
+  id: string;
+  taskId: string;
+  requesterId: string;
+  approverId: string;
+  type: 'workflow_step' | 'task_completion' | 'time_log';
+  status: 'pending' | 'approved' | 'rejected';
+  comment?: string;
+  workflowStep?: string; // If related to a specific workflow step
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuditLog {
+  id: string;
+  actorId: string;
+  action: 'INSERT' | 'UPDATE' | 'DELETE';
+  entityType: string;
+  entityId: string;
+  oldValue?: any;
+  newValue?: any;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface CapacitySnapshot {
+  id: string;
+  userId: string;
+  weekStart: string;
+  allocatedHours: number;
+  status: 'normal' | 'overloaded';
+  createdAt: string;
+}
+
+export interface Document {
+  id: string;
+  projectId: string;
+  name: string;
+  fileUrl: string;
+  version: number;
+  tags: string[];
+  accessLevel: 'all' | 'lead' | 'admin';
+  status: 'pending' | 'approved' | 'archived';
+  isPublished: boolean;
+  publishedAt?: string;
+  publishedBy?: string;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export interface PortalComment {
+  id: string;
+  documentId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface DocumentVersion {
+  id: string;
+  documentId: string;
+  fileUrl: string;
+  version: number;
+  uploadedBy: string;
+  createdAt: string;
+}
+
+export interface PublishedReport {
+  id: string;
+  projectId: string;
+  documentId: string;
+  version: number;
+  name: string;
+  content: {
+    name: string;
+    version: number;
+    file_url: string;
+    projectName: string;
+    tags: string[];
+    published_at: string;
   };
-  isDefault?: boolean;
+  file_url: string;
+  published_at: string;
+  published_by: string;
+}
+
+export interface StakeholderFeedback {
+  id: string;
+  reportId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  userName?: string;
+  userAvatar?: string;
+}
+
+export interface Milestone {
+  id: string;
+  projectId: string;
+  name: string;
+  dueDate: string;
+  status: 'pending' | 'completed' | 'delayed';
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface ProjectPhase {
+  id: string;
+  projectId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  color: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export interface TaskDependency {
+  id: string;
+  predecessorTaskId: string;
+  successorTaskId: string;
+  createdAt: string;
+}
+
+export interface NotificationPreference {
+  id: string;
+  userId: string;
+  eventType: string;
+  enabled: boolean;
+  delivery: 'instant' | 'digest' | 'both';
+}
+
+export interface NotificationLog {
+  id: string;
+  recipientId: string;
+  eventType: string;
+  entityType?: string;
+  entityId?: string;
+  subject: string;
+  deliveredAt: string;
+  deliveryMode: 'instant' | 'digest';
 }

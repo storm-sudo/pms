@@ -15,8 +15,6 @@ export interface RegisteredUser {
     createdAt: string;
 }
 
-const SESSION_KEY = 'synapse-session';
-
 // ── Registration ──
 export async function registerUser(name: string, email: string, password: string): Promise<{ success: boolean; error?: string }> {
     const normalizedEmail = email.toLowerCase().trim();
@@ -26,27 +24,29 @@ export async function registerUser(name: string, email: string, password: string
     if (!isValidNTEmail(normalizedEmail)) return { success: false, error: 'Only emails ending with "nt@gmail.com" are allowed.' };
     if (password.length < 6) return { success: false, error: 'Password must be at least 6 characters' };
 
-    // Check if user already exists in Supabase
-    const { data: existing } = await supabase.from('profiles').select('email').eq('email', normalizedEmail).single();
-    if (existing) return { success: false, error: 'An account with this email already exists' };
-
-    const newUser = {
-        id: crypto.randomUUID(),
-        name: name.trim(),
+    // Register with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
-        password, // Hashing should be done in a real system
-        status: 'pending',
-        joined_date: new Date().toISOString(),
-    };
+        password,
+        options: {
+            data: {
+                name: name.trim()
+            }
+        }
+    });
 
-    const { error } = await supabase.from('profiles').insert([newUser]);
     if (error) return { success: false, error: error.message };
 
-    notificationService.sendEmail(
-        'shahebaazkazi002nt@gmail.com',
-        'SYNAPSE: New User Registration',
-        `A new user registered: ${newUser.name} (${newUser.email})`
-    );
+    // The handle_new_user() trigger in Postgres will automatically create the profile row
+    
+    // Fetch an admin user to notify (e.g., the first one found or a fixed ID if known)
+    // For now, notifying a fixed clinical lead ID or first admin
+    const profiles = await supabase.from('profiles').select('id').eq('role', 'admin').limit(1);
+    if (profiles.data?.[0]) {
+        await notificationService.sendNotification('account_registered', profiles.data[0].id, {
+            data: { name, email: normalizedEmail }
+        });
+    }
 
     return { success: true };
 }
@@ -54,30 +54,38 @@ export async function registerUser(name: string, email: string, password: string
 // ── Login ──
 export async function loginUser(email: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> {
     const normalizedEmail = email.toLowerCase().trim();
-    const { data: user, error } = await supabase.from('profiles')
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password
+    });
+
+    if (error) return { success: false, error: error.message };
+    
+    // Fetch profile data for state consistency
+    const { data: profile, error: profileError } = await supabase
+        .from('profiles')
         .select('*')
-        .eq('email', normalizedEmail)
-        .eq('password', password)
+        .eq('id', data.user.id)
         .single();
 
-    if (error || !user) return { success: false, error: 'Invalid email or password' };
-    if (user.status !== 'approved') return { success: false, error: 'Account pending approval' };
+    if (profileError || !profile) return { success: false, error: 'Profile not found' };
+    if (profile.status !== 'approved') return { success: false, error: 'Account pending approval' };
 
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: user.id, email: user.email }));
-    return { success: true, user };
+    return { success: true, user: profile };
 }
 
 // ── Session ──
-export function getSession(): { userId: string; email: string } | null {
-    if (typeof window === 'undefined') return null;
-    try {
-        const data = localStorage.getItem(SESSION_KEY);
-        return data ? JSON.parse(data) : null;
-    } catch {
-        return null;
-    }
+export async function getSession(): Promise<{ userId: string; email: string } | null> {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session) return null;
+    
+    return {
+        userId: session.user.id,
+        email: session.user.email || ''
+    };
 }
 
-export function logoutUser(): void {
-    localStorage.removeItem(SESSION_KEY);
+export async function logoutUser(): Promise<void> {
+    await supabase.auth.signOut();
 }
