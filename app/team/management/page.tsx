@@ -53,12 +53,16 @@ export default function UserManagementPage() {
   const [newPassword, setNewPassword] = useState("dmin123")
   const [newRole, setNewRole] = useState<"admin" | "member">("member")
   const [newDept, setNewDept] = useState("Mol Bio")
+  const [newSkills, setNewSkills] = useState("")
+  const [newCapacity, setNewCapacity] = useState(40)
 
   // Edit user form state
   const [editName, setEditName] = useState("")
   const [editEmail, setEditEmail] = useState("")
   const [editRole, setEditRole] = useState<"admin" | "member">("member")
   const [editDept, setEditDept] = useState("Mol Bio")
+  const [editSkills, setEditSkills] = useState("")
+  const [editCapacity, setEditCapacity] = useState(40)
   const [editJoinedDate, setEditJoinedDate] = useState("")
   const [processingId, setProcessingId] = useState<string | null>(null)
 
@@ -197,6 +201,8 @@ export default function UserManagementPage() {
                             setEditEmail(user.email);
                             setEditRole(user.role as any);
                             setEditDept(user.department);
+                            setEditSkills(user.skills.join(", "));
+                            setEditCapacity(user.weeklyCapacityHours);
                             setEditJoinedDate(user.joinedDate.split('T')[0]);
                             setIsEditOpen(true);
                           }}
@@ -298,6 +304,28 @@ export default function UserManagementPage() {
                       </Select>
                     </div>
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="capacity" className="text-slate-300">Weekly Capacity (Hrs)</Label>
+                      <Input 
+                        id="capacity" 
+                        type="number"
+                        value={newCapacity} 
+                        onChange={(e) => setNewCapacity(parseInt(e.target.value) || 0)}
+                        className="bg-slate-800 border-slate-700 text-slate-50"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="skills" className="text-slate-300">Clinical Skills (comma separated)</Label>
+                    <Input 
+                      id="skills" 
+                      value={newSkills} 
+                      onChange={(e) => setNewSkills(e.target.value)}
+                      placeholder="e.g. PCR, NGS, LabSafety"
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button 
@@ -319,6 +347,8 @@ export default function UserManagementPage() {
                         password: newPassword,
                         role: newRole,
                         department: newDept as any,
+                        skills: newSkills.split(",").map(s => s.trim()).filter(Boolean),
+                        weeklyCapacityHours: newCapacity,
                         avatar: ""
                       });
                       setIsCreateOpen(false);
@@ -396,6 +426,27 @@ export default function UserManagementPage() {
                       className="bg-slate-800 border-slate-700 text-slate-50"
                     />
                   </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-capacity" className="text-slate-300">Weekly Capacity (Hrs)</Label>
+                      <Input 
+                        id="edit-capacity" 
+                        type="number"
+                        value={editCapacity} 
+                        onChange={(e) => setEditCapacity(parseInt(e.target.value) || 0)}
+                        className="bg-slate-800 border-slate-700 text-slate-50"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="edit-skills" className="text-slate-300">Clinical Skills</Label>
+                    <Input 
+                      id="edit-skills" 
+                      value={editSkills} 
+                      onChange={(e) => setEditSkills(e.target.value)}
+                      className="bg-slate-800 border-slate-700 text-slate-50"
+                    />
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button 
@@ -412,6 +463,8 @@ export default function UserManagementPage() {
                         email: editEmail,
                         role: editRole,
                         department: editDept as any,
+                        skills: editSkills.split(",").map(s => s.trim()).filter(Boolean),
+                        weeklyCapacityHours: editCapacity,
                         joinedDate: editJoinedDate ? new Date(editJoinedDate).toISOString() : editingUser.joinedDate
                       });
                       setIsEditOpen(false);
