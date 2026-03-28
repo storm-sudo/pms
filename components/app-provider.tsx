@@ -431,6 +431,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         joinedDate: user.joined_date,
         lastActive: user.last_active,
         avatar: user.avatar_url,
+        skills: user.skills || [],
+        weeklyCapacityHours: user.weekly_capacity_hours || 40,
         workload: user.workload || { activeTasks: 0, completedThisWeek: 0, overdueTasks: 0, avgCompletionTime: 0 }
       };
       setState(s => ({ ...s, currentUser: mappedUser, isLoggedIn: true }));
